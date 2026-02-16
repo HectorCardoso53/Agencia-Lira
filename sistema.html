@@ -7,7 +7,7 @@
     <title>Sistema de Navegação -Agência Lira</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -36,47 +36,72 @@
         </header>
         <!-- DASHBOARD -->
         <div id="dashboard" class="content-section active">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Total Geral</div>
+
+            <!-- 🔵 MÉTRICAS PRINCIPAIS -->
+            <div class="stats-grid main-metrics">
+
+                <div class="stat-card destaque">
+                    <div class="stat-label">Receita Total</div>
                     <div class="stat-value" id="totalGeral">R$ 0,00</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Passagens</div>
-                    <div class="stat-value" id="totalPassagens">0</div>
+
+                <div class="stat-card destaque">
+                    <div class="stat-label">Comissão Total</div>
+                    <div class="stat-value" id="totalComissao">R$ 0,00</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Encomendas</div>
-                    <div class="stat-value" id="totalEncomendas">0</div>
-                </div>
-                <div class="stat-card">
+
+                <div class="stat-card destaque">
                     <div class="stat-label">Lucro Líquido</div>
                     <div class="stat-value" id="lucroLiquido">R$ 0,00</div>
                 </div>
+
+                <div class="stat-card destaque">
+                    <div class="stat-label">Receita do Mês</div>
+                    <div class="stat-value" id="receitaMes">R$ 0,00</div>
+                </div>
+
             </div>
 
-            <div class="card">
-                <h2>Últimas Transações</h2>
-                <div class="table-container">
-                    <table id="ultimasTransacoes">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Tipo</th>
-                                <th>Cliente</th>
-                                <th>Valor</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="transacoesBody">
-                            <tr>
-                                <td colspan="5" style="text-align: center; color: var(--text-light);">Nenhuma transação
-                                    registrada</td>
-                            </tr>
-                        </tbody>
-                    </table>
+
+            <!-- ⚪ MÉTRICAS SECUNDÁRIAS -->
+            <div class="stats-grid secondary-metrics">
+
+                <div class="stat-card small">
+                    <div class="stat-label">Ticket Médio</div>
+                    <div class="stat-value" id="ticketMedio">R$ 0,00</div>
+                </div>
+
+                <div class="stat-card small">
+                    <div class="stat-label">Passagens Ativas</div>
+                    <div class="stat-value" id="totalPassagens">0</div>
+                </div>
+
+                <div class="stat-card small">
+                    <div class="stat-label">Canceladas</div>
+                    <div class="stat-value" id="totalCanceladas">0</div>
+                </div>
+
+                <div class="stat-card small">
+                    <div class="stat-label">Encomendas</div>
+                    <div class="stat-value" id="totalEncomendas">0</div>
+                </div>
+
+            </div>
+
+
+            <!-- 📊 GRÁFICOS -->
+            <div class="graficos-grid">
+                <div class="grafico-card">
+                    <h3>Distribuição Receita</h3>
+                    <canvas id="graficoResumo"></canvas>
+                </div>
+
+                <div class="grafico-card">
+                    <h3>Evolução Receita</h3>
+                    <canvas id="graficoEvolucaoDashboard"></canvas>
                 </div>
             </div>
+
         </div>
 
         <!-- PASSAGENS -->
@@ -292,72 +317,69 @@
 
         <!-- RELATÓRIOS -->
         <div id="relatorios" class="content-section">
+
+            <!-- FILTRO -->
             <div class="card">
                 <h2>Relatórios Financeiros</h2>
+
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Data Inicial</label>
                         <input type="date" id="dataInicial">
                     </div>
+
                     <div class="form-group">
                         <label>Data Final</label>
                         <input type="date" id="dataFinal">
                     </div>
                 </div>
+
                 <div class="action-buttons">
                     <button class="btn" onclick="gerarRelatorio()">📊 Gerar Relatório</button>
-                    <button class="btn btn-secondary" onclick="gerarPrestacaoContas()">📄 Gerar Prestação de Contas
-                        (PDF)</button>
                 </div>
+
+                <p style="margin-top:20px; color: var(--text-light);">
+                    Gere o relatório do período desejado e visualize antes de baixar.
+                </p>
             </div>
 
-            <div class="card" id="relatorioResultado" style="display: none;">
+            <!-- RESULTADO DO RELATÓRIO -->
+            <div class="card" id="relatorioResultado" style="display:none; margin-top:20px;">
+
                 <h2>Resultado do Período</h2>
+
                 <div class="stats-grid">
+
                     <div class="stat-card">
                         <div class="stat-label">Receita Passagens</div>
                         <div class="stat-value" id="receitaPassagens">R$ 0,00</div>
                     </div>
+
                     <div class="stat-card">
                         <div class="stat-label">Receita Encomendas</div>
                         <div class="stat-value" id="receitaEncomendas">R$ 0,00</div>
                     </div>
+
                     <div class="stat-card">
                         <div class="stat-label">Comissão Agência</div>
                         <div class="stat-value" id="comissaoAgencia">R$ 0,00</div>
-                        <small style="color: var(--text-light); font-size: 0.8rem;">10% passagens + 30%
-                            encomendas</small>
+                        <small style="color: var(--text-light); font-size: 0.8rem;">
+                            10% passagens + 30% encomendas
+                        </small>
                     </div>
+
                     <div class="stat-card">
                         <div class="stat-label">Lucro Líquido</div>
                         <div class="stat-value" id="lucroRelatorio">R$ 0,00</div>
-                    </div>
-                </div>
-
-                <div class="card" style="margin-top:20px;">
-                    <h3 style="margin-bottom:15px;">Análise Visual</h3>
-
-                    <div class="graficos-grid">
-
-                        <div class="grafico-card">
-                            <canvas id="graficoReceita"></canvas>
-                        </div>
-
-                        <div class="grafico-card">
-                            <canvas id="graficoEvolucao"></canvas>
-                        </div>
-
-                    </div>
-
-
-                    <div class="grafico-card full-width">
-                        <canvas id="graficoEvolucao"></canvas>
                     </div>
 
                 </div>
 
             </div>
+
         </div>
+
+
     </div>
 
     <!-- MODAL VISUALIZAÇÃO PDF -->
@@ -375,9 +397,19 @@
         </div>
     </div>
 
+    <footer class="footer">
+        <div class="footer-content">
+            <p>
+                © 2026 Agência Lira • Desenvolvido por
+                <span class="softplan">Softplan</span>
+            </p>
+        </div>
+    </footer>
+
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script type="module" src="firebase.js"></script>
-    <script type="module" src="script.js"></script>
+    <script type="module" src="js/firebase.js"></script>
+    <script type="module" src="js/script.js"></script>
 </body>
 
 </html>

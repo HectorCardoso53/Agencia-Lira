@@ -13,28 +13,91 @@ let passagens = [];
 let encomendas = [];
 
 let graficoReceita;
-let graficoComissao;
 let graficoEvolucao;
+
+let graficoResumo;
+let graficoEvolucaoDashboard;
+
+function gerarGraficosDashboard(receitaPass, receitaEnc) {
+
+  const ctxResumo = document.getElementById("graficoResumo");
+  const ctxEvolucao = document.getElementById("graficoEvolucaoDashboard");
+
+  if (graficoResumo) graficoResumo.destroy();
+  if (graficoEvolucaoDashboard) graficoEvolucaoDashboard.destroy();
+
+  // 📊 Comparativo
+  graficoResumo = new Chart(ctxResumo, {
+  type: "doughnut",
+  data: {
+    labels: ["Passagens", "Encomendas"],
+    datasets: [{
+      data: [receitaPass, receitaEnc],
+      backgroundColor: ["#1f4e79", "#2ecc71"],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom"
+      }
+    }
+  }
+});
+
+
+  // 📈 Evolução diária
+  const receitasPorData = {};
+
+  [...passagens, ...encomendas].forEach(item => {
+    const data = item.dataViagem;
+    receitasPorData[data] = (receitasPorData[data] || 0) + item.valor;
+  });
+
+  const labels = Object.keys(receitasPorData).sort();
+  const valores = labels.map(d => receitasPorData[d]);
+
+  graficoEvolucaoDashboard = new Chart(ctxEvolucao, {
+  type: "line",
+  data: {
+    labels,
+    datasets: [{
+      label: "Receita diária",
+      data: valores,
+      borderColor: "#1f4e79",
+      backgroundColor: "rgba(31,78,121,0.1)",
+      fill: true,
+      tension: 0.4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true
+      }
+    }
+  }
+});
+
+}
+
 
 window.logout = async function () {
   await signOut(auth);
   window.location.href = "index.html";
 };
 
-// Verificar se localStorage está disponível
-function testarLocalStorage() {
-  try {
-    const teste = "__teste__";
-    localStorage.setItem(teste, teste);
-    localStorage.removeItem(teste);
-    return true;
-  } catch (e) {
-    alert(
-      "⚠️ AVISO: O armazenamento local não está disponível. Os dados não serão salvos.\n\nPossíveis causas:\n- Navegação privada/anônima ativa\n- Configurações de privacidade do navegador\n\nPor favor, use o modo normal do navegador.",
-    );
-    return false;
-  }
-}
+
 
 async function carregarDados() {
   passagens = [];
@@ -42,7 +105,7 @@ async function carregarDados() {
 
   const queryPassagens = await getDocs(collection(db, "passagens"));
   queryPassagens.forEach((docSnap) => {
-    passagens.push({ id: docSnap.id, ...docSnap.data() });
+    passagens.push({ ...docSnap.data(), id: docSnap.id });
   });
 
   const queryEncomendas = await getDocs(collection(db, "encomendas"));
@@ -103,7 +166,6 @@ document
     }
 
     const passagem = {
-      id: Date.now(),
       bilhete: bilhete,
       nome: nome,
       cpf: document.getElementById("cpfPassageiro").value.trim(),
@@ -160,8 +222,8 @@ function renderizarPassagens() {
                     <td>
                         <div class="action-buttons">
                             <button class="btn btn-small" onclick="gerarComprovantePassagem(${p.id})">📄 Comprovante</button>
-                            <button class="btn btn-small btn-danger" onclick="cancelarPassagem(${p.id})">Cancelar</button>
-                            <button class="btn btn-small btn-secondary" onclick="excluirPassagem(${p.id})">Excluir</button>
+                            <button class="btn btn-small btn-warning" onclick="cancelarPassagem('${p.id}')">Cancelar</button>
+                            <button class="btn btn-small btn-danger" onclick="excluirPassagem('${p.id}')">Excluir</button>
                         </div>
                     </td>
                 </tr>
@@ -336,64 +398,49 @@ window.filtrarEncomendas = function () {
 
 // DASHBOARD
 function atualizarDashboard() {
-  const passagensAtivas = passagens.filter((p) => p.status === "ATIVO");
-  const totalPassagens = passagensAtivas.reduce((sum, p) => sum + p.valor, 0);
-  const totalEncomendas = encomendas.reduce((sum, e) => sum + e.valor, 0);
-  const totalGeral = totalPassagens + totalEncomendas;
-  // Comissão: 10% passagens + 30% encomendas
-  const comissaoPassagens = totalPassagens * 0.1;
-  const comissaoEncomendas = totalEncomendas * 0.3;
-  const comissaoTotal = comissaoPassagens + comissaoEncomendas;
-  const lucroLiquido = totalGeral - comissaoTotal;
 
-  document.getElementById("totalGeral").textContent =
-    `R$ ${totalGeral.toFixed(2)}`;
-  document.getElementById("totalPassagens").textContent =
-    passagensAtivas.length;
+  const passagensAtivas = passagens.filter(p => p.status === "ATIVO");
+  const passagensCanceladas = passagens.filter(p => p.status === "CANCELADO");
+
+  const receitaPassagens = passagensAtivas.reduce((s, p) => s + p.valor, 0);
+  const receitaEncomendas = encomendas.reduce((s, e) => s + e.valor, 0);
+
+  const totalReceita = receitaPassagens + receitaEncomendas;
+
+  const comissaoPass = receitaPassagens * 0.1;
+  const comissaoEnc = receitaEncomendas * 0.3;
+  const totalComissao = comissaoPass + comissaoEnc;
+
+  const lucroLiquido = totalReceita - totalComissao;
+
+  const totalTransacoes = passagensAtivas.length + encomendas.length;
+  const ticketMedio = totalTransacoes > 0 ? totalReceita / totalTransacoes : 0;
+
+  // Receita do mês atual
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth();
+  const anoAtual = hoje.getFullYear();
+
+  const receitaMes = [...passagensAtivas, ...encomendas]
+    .filter(item => {
+      const data = new Date(item.dataViagem);
+      return data.getMonth() === mesAtual && data.getFullYear() === anoAtual;
+    })
+    .reduce((s, item) => s + item.valor, 0);
+
+  // Atualiza métricas
+  document.getElementById("totalGeral").textContent = `R$ ${totalReceita.toFixed(2)}`;
+  document.getElementById("totalComissao").textContent = `R$ ${totalComissao.toFixed(2)}`;
+  document.getElementById("lucroLiquido").textContent = `R$ ${lucroLiquido.toFixed(2)}`;
+  document.getElementById("ticketMedio").textContent = `R$ ${ticketMedio.toFixed(2)}`;
+  document.getElementById("totalPassagens").textContent = passagensAtivas.length;
+  document.getElementById("totalCanceladas").textContent = passagensCanceladas.length;
   document.getElementById("totalEncomendas").textContent = encomendas.length;
-  document.getElementById("lucroLiquido").textContent =
-    `R$ ${lucroLiquido.toFixed(2)}`;
+  document.getElementById("receitaMes").textContent = `R$ ${receitaMes.toFixed(2)}`;
 
-  // Últimas transações
-  const todasTransacoes = [
-    ...passagensAtivas.map((p) => ({
-      ...p,
-      tipo: "Passagem",
-      cliente: p.nome,
-      data: p.dataCadastro,
-    })),
-    ...encomendas.map((e) => ({
-      ...e,
-      tipo: "Encomenda",
-      cliente: e.destinatario,
-      data: e.dataCadastro,
-    })),
-  ]
-    .sort((a, b) => new Date(b.data) - new Date(a.data))
-    .slice(0, 10);
-
-  const tbody = document.getElementById("transacoesBody");
-
-  if (todasTransacoes.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">Nenhuma transação registrada</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = todasTransacoes
-    .map(
-      (t) => `
-                <tr>
-                    <td>${new Date(t.data).toLocaleDateString("pt-BR")}</td>
-                    <td>${t.tipo}</td>
-                    <td>${t.cliente}</td>
-                    <td>R$ ${t.valor.toFixed(2)}</td>
-                    <td><span class="status-badge status-${t.status ? t.status.toLowerCase() : "ativo"}">${t.status || "ATIVO"}</span></td>
-                </tr>
-            `,
-    )
-    .join("");
+  gerarGraficosDashboard(receitaPassagens, receitaEncomendas);
 }
+
 
 // RELATÓRIOS
 window.gerarRelatorio = function () {
@@ -419,27 +466,34 @@ window.gerarRelatorio = function () {
 
   const receitaPass = passagensFiltradas.reduce((sum, p) => sum + p.valor, 0);
   const receitaEnc = encomendasFiltradas.reduce((sum, e) => sum + e.valor, 0);
-  const totalGeral = receitaPass + receitaEnc;
-  // Comissão: 10% passagens + 30% encomendas
+
   const comissaoPass = receitaPass * 0.1;
   const comissaoEnc = receitaEnc * 0.3;
   const comissaoTotal = comissaoPass + comissaoEnc;
-  const lucro = totalGeral - comissaoTotal;
+
+  const lucro = receitaPass + receitaEnc - comissaoTotal;
+
   const totalVolumes = encomendasFiltradas.reduce(
     (sum, e) => sum + e.volumes,
-    0,
+    0
   );
 
+  // 🔹 Atualiza tela
   document.getElementById("receitaPassagens").textContent =
     `R$ ${receitaPass.toFixed(2)}`;
+
   document.getElementById("receitaEncomendas").textContent =
     `R$ ${receitaEnc.toFixed(2)}`;
+
   document.getElementById("comissaoAgencia").textContent =
     `R$ ${comissaoTotal.toFixed(2)}`;
+
   document.getElementById("lucroRelatorio").textContent =
     `R$ ${lucro.toFixed(2)}`;
 
-  // Armazenar dados do relatório para exportação
+  document.getElementById("relatorioResultado").style.display = "block";
+
+  // 🔹 Salva dados
   window.dadosRelatorio = {
     dataInicial,
     dataFinal,
@@ -454,9 +508,11 @@ window.gerarRelatorio = function () {
     totalVolumes,
   };
 
-  document.getElementById("relatorioResultado").style.display = "block";
-  window.gerarGraficos(window.dadosRelatorio);
+  // 🔥 JÁ GERA O PDF AUTOMATICAMENTE
+  gerarPrestacaoContas();
 };
+
+
 
 // GERAÇÃO DE COMPROVANTES E RELATÓRIOS
 
@@ -756,7 +812,6 @@ window.gerarPrestacaoContas = function () {
         dados.encomendas.length,
         `R$ ${dados.receitaEnc.toFixed(2)}`,
       ],
-      ["", "", ""],
       [
         "RECEITA TOTAL",
         "",
@@ -796,7 +851,6 @@ window.gerarPrestacaoContas = function () {
         "30%",
         `R$ ${dados.comissaoEnc.toFixed(2)}`,
       ],
-      ["", "", "", ""],
       ["TOTAL COMISSÃO", "", "", `R$ ${dados.comissaoTotal.toFixed(2)}`],
     ],
     theme: "grid",
