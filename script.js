@@ -1,0 +1,1088 @@
+import { auth, db } from "./firebase.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  updateDoc,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+let passagens = [];
+let encomendas = [];
+
+let graficoReceita;
+let graficoComissao;
+let graficoEvolucao;
+
+window.logout = async function () {
+  await signOut(auth);
+  window.location.href = "index.html";
+};
+
+// Verificar se localStorage está disponível
+function testarLocalStorage() {
+  try {
+    const teste = "__teste__";
+    localStorage.setItem(teste, teste);
+    localStorage.removeItem(teste);
+    return true;
+  } catch (e) {
+    alert(
+      "⚠️ AVISO: O armazenamento local não está disponível. Os dados não serão salvos.\n\nPossíveis causas:\n- Navegação privada/anônima ativa\n- Configurações de privacidade do navegador\n\nPor favor, use o modo normal do navegador.",
+    );
+    return false;
+  }
+}
+
+async function carregarDados() {
+  passagens = [];
+  encomendas = [];
+
+  const queryPassagens = await getDocs(collection(db, "passagens"));
+  queryPassagens.forEach((docSnap) => {
+    passagens.push({ id: docSnap.id, ...docSnap.data() });
+  });
+
+  const queryEncomendas = await getDocs(collection(db, "encomendas"));
+  queryEncomendas.forEach((docSnap) => {
+    encomendas.push({ id: docSnap.id, ...docSnap.data() });
+  });
+
+  renderizarPassagens();
+  renderizarEncomendas();
+  atualizarDashboard();
+}
+
+// Navegação entre abas
+window.showTab = function (tabName, element) {
+  document.querySelectorAll(".content-section").forEach((section) => {
+    section.classList.remove("active");
+  });
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.classList.remove("active");
+  });
+
+  document.getElementById(tabName).classList.add("active");
+  if (element) {
+    element.classList.add("active");
+  }
+
+  if (tabName === "dashboard") {
+    atualizarDashboard();
+  }
+};
+
+// PASSAGENS
+document
+  .getElementById("formPassagem")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    console.log("Formulário de passagem submetido");
+
+    // Validar campos obrigatórios
+    const nome = document.getElementById("nomePassageiro").value.trim();
+    const embarque = document.getElementById("embarque").value;
+    const destino = document.getElementById("destino").value;
+    const bilhete = document.getElementById("bilhete").value.trim();
+    let valor = document
+      .getElementById("valorPassagem")
+      .value.replace("R$ ", "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+
+    valor = parseFloat(valor);
+
+    const dataViagem = document.getElementById("dataViagem").value;
+
+    if (!nome || !embarque || !destino || !bilhete || !valor || !dataViagem) {
+      alert("❌ Por favor, preencha todos os campos obrigatórios (*)");
+      return;
+    }
+
+    const passagem = {
+      id: Date.now(),
+      bilhete: bilhete,
+      nome: nome,
+      cpf: document.getElementById("cpfPassageiro").value.trim(),
+      dataNascimento: document.getElementById("dataNascimento").value,
+      telefone: document.getElementById("telefone").value.trim(),
+      embarque: embarque,
+      destino: destino,
+      valor: valor,
+      dataViagem: dataViagem,
+      status: "ATIVO",
+      dataCadastro: new Date().toISOString(),
+    };
+
+    console.log("Passagem criada:", passagem);
+
+    await addDoc(collection(db, "passagens"), passagem);
+    await carregarDados();
+
+    console.log("Total de passagens:", passagens.length);
+
+    alert("✅ Passagem cadastrada com sucesso!");
+    limparFormPassagem();
+    renderizarPassagens();
+    atualizarDashboard();
+  });
+
+window.limparFormPassagem = function () {
+  document.getElementById("formPassagem").reset();
+  const hoje = new Date().toISOString().split("T")[0];
+  document.getElementById("dataViagem").value = hoje;
+};
+
+function renderizarPassagens() {
+  const tbody = document.getElementById("passagensBody");
+
+  if (passagens.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="9" style="text-align: center; color: var(--text-light);">Nenhuma passagem cadastrada</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = passagens
+    .map(
+      (p) => `
+                <tr>
+                    <td>${p.bilhete}</td>
+                    <td>${p.nome}</td>
+                    <td>${p.cpf || "-"}</td>
+                    <td>${p.embarque}</td>
+                    <td>${p.destino}</td>
+                    <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
+                    <td>R$ ${p.valor.toFixed(2)}</td>
+                    <td><span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-small" onclick="gerarComprovantePassagem(${p.id})">📄 Comprovante</button>
+                            <button class="btn btn-small btn-danger" onclick="cancelarPassagem(${p.id})">Cancelar</button>
+                            <button class="btn btn-small btn-secondary" onclick="excluirPassagem(${p.id})">Excluir</button>
+                        </div>
+                    </td>
+                </tr>
+            `,
+    )
+    .join("");
+}
+
+window.cancelarPassagem = async function (id) {
+  if (confirm("Deseja realmente cancelar esta passagem?")) {
+    const passagem = passagens.find((p) => p.id === id);
+    await updateDoc(doc(db, "passagens", id), {
+      status: "CANCELADO",
+    });
+    await carregarDados();
+    renderizarPassagens();
+    atualizarDashboard();
+  }
+};
+
+window.excluirPassagem = async function (id) {
+  if (confirm("Deseja realmente excluir esta passagem?")) {
+    await deleteDoc(doc(db, "passagens", id));
+    await carregarDados();
+    renderizarPassagens();
+    atualizarDashboard();
+  }
+};
+
+window.filtrarPassagens = function () {
+  const dataFiltro = document.getElementById("filtroDataPassagem").value;
+  const statusFiltro = document.getElementById("filtroStatusPassagem").value;
+
+  let passagensFiltradas = passagens;
+
+  if (dataFiltro) {
+    passagensFiltradas = passagensFiltradas.filter(
+      (p) => p.dataViagem === dataFiltro,
+    );
+  }
+
+  if (statusFiltro) {
+    passagensFiltradas = passagensFiltradas.filter(
+      (p) => p.status === statusFiltro,
+    );
+  }
+
+  const tbody = document.getElementById("passagensBody");
+
+  if (passagensFiltradas.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="9" style="text-align: center; color: var(--text-light);">Nenhuma passagem encontrada com os filtros aplicados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = passagensFiltradas
+    .map(
+      (p) => `
+                <tr>
+                    <td>${p.bilhete}</td>
+                    <td>${p.nome}</td>
+                    <td>${p.cpf || "-"}</td>
+                    <td>${p.embarque}</td>
+                    <td>${p.destino}</td>
+                    <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
+                    <td>R$ ${p.valor.toFixed(2)}</td>
+                    <td><span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-small" onclick="gerarComprovantePassagem(${p.id})">📄 Comprovante</button>
+                            <button class="btn btn-small btn-danger" onclick="cancelarPassagem(${p.id})">Cancelar</button>
+                            <button class="btn btn-small btn-secondary" onclick="excluirPassagem(${p.id})">Excluir</button>
+                        </div>
+                    </td>
+                </tr>
+            `,
+    )
+    .join("");
+};
+
+function renderizarEncomendas() {
+  const tbody = document.getElementById("encomendasBody");
+
+  if (encomendas.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="10" style="text-align: center; color: var(--text-light);">Nenhuma encomenda cadastrada</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = encomendas
+    .map(
+      (e) => `
+                <tr>
+                    <td>${e.ordem}</td>
+                    <td>${e.destinatario}</td>
+                    <td>${e.remetente || "-"}</td>
+                    <td>${e.bilhete || "-"}</td>
+                    <td>${e.local}</td>
+                    <td>${e.especie}</td>
+                    <td>${e.volumes}</td>
+                    <td>R$ ${e.valor.toFixed(2)}</td>
+                    <td>${new Date(e.dataViagem).toLocaleDateString("pt-BR")}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-small" onclick="gerarComprovanteEncomenda('${e.id}')">📄 Comprovante</button>
+                            <button class="btn btn-small btn-secondary" onclick="excluirEncomenda('${e.id}')">Excluir</button>
+                        </div>
+                    </td>
+                </tr>
+            `,
+    )
+    .join("");
+}
+
+window.excluirEncomenda = async function (id) {
+  if (confirm("Deseja realmente excluir esta encomenda?")) {
+    await deleteDoc(doc(db, "encomendas", id));
+    await carregarDados();
+  }
+};
+
+window.filtrarEncomendas = function () {
+  const dataFiltro = document.getElementById("filtroDataEncomenda").value;
+  const localFiltro = document.getElementById("filtroLocalEncomenda").value;
+
+  let encomendasFiltradas = encomendas;
+
+  if (dataFiltro) {
+    encomendasFiltradas = encomendasFiltradas.filter(
+      (e) => e.dataViagem === dataFiltro,
+    );
+  }
+
+  if (localFiltro) {
+    encomendasFiltradas = encomendasFiltradas.filter(
+      (e) => e.local === localFiltro,
+    );
+  }
+
+  const tbody = document.getElementById("encomendasBody");
+
+  if (encomendasFiltradas.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="10" style="text-align: center; color: var(--text-light);">Nenhuma encomenda encontrada com os filtros aplicados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = encomendasFiltradas
+    .map(
+      (e) => `
+                <tr>
+                    <td>${e.ordem}</td>
+                    <td>${e.destinatario}</td>
+                    <td>${e.remetente || "-"}</td>
+                    <td>${e.bilhete || "-"}</td>
+                    <td>${e.local}</td>
+                    <td>${e.especie}</td>
+                    <td>${e.volumes}</td>
+                    <td>R$ ${e.valor.toFixed(2)}</td>
+                    <td>${new Date(e.dataViagem).toLocaleDateString("pt-BR")}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-small" onclick="gerarComprovanteEncomenda(${e.id})">📄 Comprovante</button>
+                            <button class="btn btn-small btn-secondary" onclick="excluirEncomenda(${e.id})">Excluir</button>
+                        </div>
+                    </td>
+                </tr>
+            `,
+    )
+    .join("");
+};
+
+// DASHBOARD
+function atualizarDashboard() {
+  const passagensAtivas = passagens.filter((p) => p.status === "ATIVO");
+  const totalPassagens = passagensAtivas.reduce((sum, p) => sum + p.valor, 0);
+  const totalEncomendas = encomendas.reduce((sum, e) => sum + e.valor, 0);
+  const totalGeral = totalPassagens + totalEncomendas;
+  // Comissão: 10% passagens + 30% encomendas
+  const comissaoPassagens = totalPassagens * 0.1;
+  const comissaoEncomendas = totalEncomendas * 0.3;
+  const comissaoTotal = comissaoPassagens + comissaoEncomendas;
+  const lucroLiquido = totalGeral - comissaoTotal;
+
+  document.getElementById("totalGeral").textContent =
+    `R$ ${totalGeral.toFixed(2)}`;
+  document.getElementById("totalPassagens").textContent =
+    passagensAtivas.length;
+  document.getElementById("totalEncomendas").textContent = encomendas.length;
+  document.getElementById("lucroLiquido").textContent =
+    `R$ ${lucroLiquido.toFixed(2)}`;
+
+  // Últimas transações
+  const todasTransacoes = [
+    ...passagensAtivas.map((p) => ({
+      ...p,
+      tipo: "Passagem",
+      cliente: p.nome,
+      data: p.dataCadastro,
+    })),
+    ...encomendas.map((e) => ({
+      ...e,
+      tipo: "Encomenda",
+      cliente: e.destinatario,
+      data: e.dataCadastro,
+    })),
+  ]
+    .sort((a, b) => new Date(b.data) - new Date(a.data))
+    .slice(0, 10);
+
+  const tbody = document.getElementById("transacoesBody");
+
+  if (todasTransacoes.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">Nenhuma transação registrada</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = todasTransacoes
+    .map(
+      (t) => `
+                <tr>
+                    <td>${new Date(t.data).toLocaleDateString("pt-BR")}</td>
+                    <td>${t.tipo}</td>
+                    <td>${t.cliente}</td>
+                    <td>R$ ${t.valor.toFixed(2)}</td>
+                    <td><span class="status-badge status-${t.status ? t.status.toLowerCase() : "ativo"}">${t.status || "ATIVO"}</span></td>
+                </tr>
+            `,
+    )
+    .join("");
+}
+
+// RELATÓRIOS
+window.gerarRelatorio = function () {
+  const dataInicial = document.getElementById("dataInicial").value;
+  const dataFinal = document.getElementById("dataFinal").value;
+
+  if (!dataInicial || !dataFinal) {
+    alert("Por favor, selecione as datas inicial e final.");
+    return;
+  }
+
+  const passagensFiltradas = passagens.filter((p) => {
+    return (
+      p.status === "ATIVO" &&
+      p.dataViagem >= dataInicial &&
+      p.dataViagem <= dataFinal
+    );
+  });
+
+  const encomendasFiltradas = encomendas.filter((e) => {
+    return e.dataViagem >= dataInicial && e.dataViagem <= dataFinal;
+  });
+
+  const receitaPass = passagensFiltradas.reduce((sum, p) => sum + p.valor, 0);
+  const receitaEnc = encomendasFiltradas.reduce((sum, e) => sum + e.valor, 0);
+  const totalGeral = receitaPass + receitaEnc;
+  // Comissão: 10% passagens + 30% encomendas
+  const comissaoPass = receitaPass * 0.1;
+  const comissaoEnc = receitaEnc * 0.3;
+  const comissaoTotal = comissaoPass + comissaoEnc;
+  const lucro = totalGeral - comissaoTotal;
+  const totalVolumes = encomendasFiltradas.reduce(
+    (sum, e) => sum + e.volumes,
+    0,
+  );
+
+  document.getElementById("receitaPassagens").textContent =
+    `R$ ${receitaPass.toFixed(2)}`;
+  document.getElementById("receitaEncomendas").textContent =
+    `R$ ${receitaEnc.toFixed(2)}`;
+  document.getElementById("comissaoAgencia").textContent =
+    `R$ ${comissaoTotal.toFixed(2)}`;
+  document.getElementById("lucroRelatorio").textContent =
+    `R$ ${lucro.toFixed(2)}`;
+
+  // Armazenar dados do relatório para exportação
+  window.dadosRelatorio = {
+    dataInicial,
+    dataFinal,
+    passagens: passagensFiltradas,
+    encomendas: encomendasFiltradas,
+    receitaPass,
+    receitaEnc,
+    comissaoPass,
+    comissaoEnc,
+    comissaoTotal,
+    lucro,
+    totalVolumes,
+  };
+
+  document.getElementById("relatorioResultado").style.display = "block";
+  window.gerarGraficos(window.dadosRelatorio);
+};
+
+// GERAÇÃO DE COMPROVANTES E RELATÓRIOS
+
+window.gerarComprovantePassagem = function (id) {
+  const passagem = passagens.find((p) => p.id === id);
+  if (!passagem) {
+    alert("Passagem não encontrada!");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Cabeçalho
+  doc.setFillColor(10, 37, 64);
+  doc.rect(0, 0, 210, 40, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont(undefined, "bold");
+  doc.text("AGÊNCIA LIRA", 105, 15, { align: "center" });
+
+  doc.setFontSize(12);
+  doc.setFont(undefined, "normal");
+  doc.text("Comprovante de Passagem", 105, 25, { align: "center" });
+  doc.text("Sistema de Navegação Fluvial", 105, 32, { align: "center" });
+
+  // Dados da passagem
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  let y = 55;
+
+  doc.setFont(undefined, "bold");
+  doc.text("DADOS DA PASSAGEM", 15, y);
+  y += 10;
+
+  doc.setFont(undefined, "normal");
+  doc.text(`Bilhete Nº: ${passagem.bilhete}`, 15, y);
+  doc.text(
+    `Data de Emissão: ${new Date(passagem.dataCadastro).toLocaleDateString("pt-BR")}`,
+    120,
+    y,
+  );
+  y += 8;
+
+  doc.text(`Passageiro: ${passagem.nome}`, 15, y);
+  y += 8;
+
+  if (passagem.cpf) {
+    doc.text(`CPF: ${passagem.cpf}`, 15, y);
+    y += 8;
+  }
+
+  if (passagem.dataNascimento) {
+    doc.text(
+      `Data de Nascimento: ${new Date(passagem.dataNascimento).toLocaleDateString("pt-BR")}`,
+      15,
+      y,
+    );
+    y += 8;
+  }
+
+  if (passagem.telefone) {
+    doc.text(`Telefone: ${passagem.telefone}`, 15, y);
+    y += 8;
+  }
+
+  y += 5;
+  doc.setFont(undefined, "bold");
+  doc.text("DETALHES DA VIAGEM", 15, y);
+  y += 10;
+
+  doc.setFont(undefined, "normal");
+  doc.text(`Embarque: ${passagem.embarque}`, 15, y);
+  doc.text(`Destino: ${passagem.destino}`, 120, y);
+  y += 8;
+
+  doc.text(
+    `Data da Viagem: ${new Date(passagem.dataViagem).toLocaleDateString("pt-BR")}`,
+    15,
+    y,
+  );
+  y += 8;
+
+  doc.text(`Status: ${passagem.status}`, 15, y);
+  y += 15;
+
+  // Valor
+  doc.setFillColor(232, 244, 248);
+  doc.rect(10, y, 190, 25, "F");
+
+  doc.setFontSize(14);
+  doc.setFont(undefined, "bold");
+  doc.text("VALOR DA PASSAGEM:", 15, y + 10);
+  doc.setFontSize(18);
+  doc.text(`R$ ${passagem.valor.toFixed(2)}`, 15, y + 20);
+
+  doc.setFontSize(11);
+  doc.setFont(undefined, "normal");
+
+  y += 40;
+
+  // Rodapé
+  doc.setFontSize(9);
+  doc.setTextColor(127, 140, 141);
+  doc.text(
+    "Este comprovante é válido como recibo de pagamento da passagem.",
+    105,
+    y,
+    { align: "center" },
+  );
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, y + 5, {
+    align: "center",
+  });
+
+  // Gerar blob do PDF
+  const pdfBlob = doc.output("bloburl");
+
+  // Mostrar no modal
+  document.getElementById("pdfPreview").src = pdfBlob;
+  document.getElementById("pdfModal").style.display = "flex";
+
+  // Botão baixar
+  document.getElementById("btnBaixarPdf").onclick = function () {
+    doc.save(
+      `Comprovante_Passagem_${passagem.bilhete}_${passagem.nome.replace(/\s+/g, "_")}.pdf`,
+    );
+  };
+};
+
+window.gerarComprovanteEncomenda = function (id) {
+  const encomenda = encomendas.find((e) => e.id === id);
+  if (!encomenda) {
+    alert("Encomenda não encontrada!");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Cabeçalho
+  doc.setFillColor(10, 37, 64);
+  doc.rect(0, 0, 210, 40, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont(undefined, "bold");
+  doc.text("AGÊNCIA LIRA", 105, 15, { align: "center" });
+
+  doc.setFontSize(12);
+  doc.setFont(undefined, "normal");
+  doc.text("Comprovante de Encomenda", 105, 25, { align: "center" });
+  doc.text("Sistema de Navegação Fluvial", 105, 32, { align: "center" });
+
+  // Dados
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+
+  let y = 55;
+
+  doc.setFont(undefined, "bold");
+  doc.text("DADOS DA ENCOMENDA", 15, y);
+  y += 10;
+
+  doc.setFont(undefined, "normal");
+  doc.text(`Ordem: ${encomenda.ordem}`, 15, y);
+  y += 8;
+
+  doc.text(
+    `Data Registro: ${new Date(encomenda.dataCadastro).toLocaleDateString("pt-BR")}`,
+    15,
+    y,
+  );
+  y += 8;
+
+  doc.text(`Destinatário: ${encomenda.destinatario}`, 15, y);
+  y += 8;
+
+  if (encomenda.remetente) {
+    doc.text(`Remetente: ${encomenda.remetente}`, 15, y);
+    y += 8;
+  }
+
+  y += 5;
+  doc.setFont(undefined, "bold");
+  doc.text("DETALHES DA CARGA", 15, y);
+  y += 10;
+
+  doc.setFont(undefined, "normal");
+  doc.text(`Espécie: ${encomenda.especie}`, 15, y);
+  y += 8;
+
+  doc.text(`Volumes: ${encomenda.volumes}`, 15, y);
+  y += 8;
+
+  doc.text(`Local: ${encomenda.local}`, 15, y);
+  y += 8;
+
+  doc.text(
+    `Data Viagem: ${new Date(encomenda.dataViagem).toLocaleDateString("pt-BR")}`,
+    15,
+    y,
+  );
+  y += 15;
+
+  // Valor
+  doc.setFillColor(232, 244, 248);
+  doc.rect(10, y, 190, 25, "F");
+
+  doc.setFontSize(14);
+  doc.setFont(undefined, "bold");
+  doc.text("VALOR A PAGAR:", 15, y + 10);
+
+  doc.setFontSize(18);
+  doc.text(`R$ ${encomenda.valor.toFixed(2)}`, 15, y + 20);
+
+  doc.setFontSize(11);
+  doc.setFont(undefined, "normal");
+
+  y += 40;
+
+  doc.setFontSize(9);
+  doc.setTextColor(127, 140, 141);
+  doc.text(
+    "Este comprovante é válido como recibo de transporte da encomenda.",
+    105,
+    y,
+    { align: "center" },
+  );
+
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, y + 5, {
+    align: "center",
+  });
+
+  // 👇 AQUI ESTÁ A DIFERENÇA IMPORTANTE
+  const pdfUrl = doc.output("bloburl");
+
+  document.getElementById("pdfPreview").src = pdfUrl;
+  document.getElementById("pdfModal").style.display = "flex";
+
+  document.getElementById("btnBaixarPdf").onclick = function () {
+    doc.save(
+      `Comprovante_Encomenda_${encomenda.ordem}_${encomenda.destinatario.replace(/\s+/g, "_")}.pdf`,
+    );
+  };
+};
+
+window.gerarPrestacaoContas = function () {
+  if (!window.dadosRelatorio) {
+    alert("⚠️ Por favor, gere um relatório primeiro antes de exportar!");
+    return;
+  }
+
+  const dados = window.dadosRelatorio;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("p", "mm", "a4");
+
+  // Cabeçalho
+  doc.setFillColor(10, 37, 64);
+  doc.rect(0, 0, 210, 45, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont(undefined, "bold");
+  doc.text(" AGÊNCIA LIRA", 105, 15, { align: "center" });
+
+  doc.setFontSize(14);
+  doc.setFont(undefined, "normal");
+  doc.text("RELATÓRIO DE PRESTAÇÃO DE CONTAS", 105, 25, { align: "center" });
+  doc.text("Com a Embarcação", 105, 32, { align: "center" });
+
+  doc.setFontSize(11);
+  doc.text(
+    `Período: ${new Date(dados.dataInicial).toLocaleDateString("pt-BR")} a ${new Date(dados.dataFinal).toLocaleDateString("pt-BR")}`,
+    105,
+    39,
+    { align: "center" },
+  );
+
+  // Resumo Financeiro
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(13);
+  doc.setFont(undefined, "bold");
+  doc.text("RESUMO FINANCEIRO", 15, 60);
+
+  doc.autoTable({
+    startY: 65,
+    head: [["Descrição", "Quantidade", "Valor (R$)"]],
+    body: [
+      [
+        "Passagens Vendidas",
+        dados.passagens.length,
+        `R$ ${dados.receitaPass.toFixed(2)}`,
+      ],
+      [
+        "Encomendas Transportadas",
+        dados.encomendas.length,
+        `R$ ${dados.receitaEnc.toFixed(2)}`,
+      ],
+      ["", "", ""],
+      [
+        "RECEITA TOTAL",
+        "",
+        `R$ ${(dados.receitaPass + dados.receitaEnc).toFixed(2)}`,
+      ],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: [26, 77, 126], fontSize: 11 },
+    styles: { fontSize: 10 },
+    columnStyles: {
+      0: { cellWidth: 100 },
+      1: { cellWidth: 40, halign: "center" },
+      2: { cellWidth: 45, halign: "right" },
+    },
+  });
+
+  let finalY = doc.lastAutoTable.finalY + 10;
+
+  // Comissões
+  doc.setFontSize(13);
+  doc.setFont(undefined, "bold");
+  doc.text("COMISSÕES DA AGÊNCIA", 15, finalY);
+
+  doc.autoTable({
+    startY: finalY + 5,
+    head: [["Tipo", "Base de Cálculo", "Taxa", "Comissão (R$)"]],
+    body: [
+      [
+        "Passagens",
+        `R$ ${dados.receitaPass.toFixed(2)}`,
+        "10%",
+        `R$ ${dados.comissaoPass.toFixed(2)}`,
+      ],
+      [
+        "Encomendas",
+        `R$ ${dados.receitaEnc.toFixed(2)}`,
+        "30%",
+        `R$ ${dados.comissaoEnc.toFixed(2)}`,
+      ],
+      ["", "", "", ""],
+      ["TOTAL COMISSÃO", "", "", `R$ ${dados.comissaoTotal.toFixed(2)}`],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: [26, 77, 126], fontSize: 11 },
+    styles: { fontSize: 10 },
+    columnStyles: {
+      3: { halign: "right" },
+    },
+  });
+
+  finalY = doc.lastAutoTable.finalY + 10;
+
+  // Resumo Final
+  doc.setFillColor(232, 244, 248);
+  doc.rect(10, finalY, 190, 30, "F");
+
+  doc.setFontSize(12);
+  doc.setFont(undefined, "bold");
+  doc.text("VALOR A REPASSAR PARA EMBARCAÇÃO:", 15, finalY + 10);
+  doc.setFontSize(18);
+  doc.setTextColor(39, 174, 96);
+  doc.text(`R$ ${dados.lucro.toFixed(2)}`, 15, finalY + 22);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont(undefined, "normal");
+  doc.text(`(Receita Total - Comissões da Agência)`, 15, finalY + 28);
+
+  finalY += 45;
+
+  // Estatísticas Adicionais
+  if (finalY < 250) {
+    doc.setFontSize(13);
+    doc.setFont(undefined, "bold");
+    doc.text("ESTATÍSTICAS DA VIAGEM", 15, finalY);
+
+    doc.autoTable({
+      startY: finalY + 5,
+      head: [["Indicador", "Valor"]],
+      body: [
+        ["Total de Passageiros", dados.passagens.length],
+        ["Total de Encomendas", dados.encomendas.length],
+        ["Total de Volumes Transportados", dados.totalVolumes],
+        [
+          "Ticket Médio Passagem",
+          dados.passagens.length > 0
+            ? `R$ ${(dados.receitaPass / dados.passagens.length).toFixed(2)}`
+            : "R$ 0,00",
+        ],
+        [
+          "Ticket Médio Encomenda",
+          dados.encomendas.length > 0
+            ? `R$ ${(dados.receitaEnc / dados.encomendas.length).toFixed(2)}`
+            : "R$ 0,00",
+        ],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [26, 77, 126], fontSize: 11 },
+      styles: { fontSize: 10 },
+    });
+  }
+
+  // Rodapé
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(9);
+    doc.setTextColor(127, 140, 141);
+    doc.text(`Página ${i} de ${pageCount}`, 105, 287, { align: "center" });
+    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, 292, {
+      align: "center",
+    });
+  }
+
+  // 👇 GERAR PREVIEW IGUAL PASSAGEM E ENCOMENDA
+  const pdfUrl = doc.output("bloburl");
+
+  document.getElementById("pdfPreview").src = pdfUrl;
+  document.getElementById("pdfModal").style.display = "flex";
+
+  document.getElementById("btnBaixarPdf").onclick = function () {
+    doc.save(
+      `Relatorio_Prestacao_Contas_${dados.dataInicial}_a_${dados.dataFinal}.pdf`,
+    );
+  };
+};
+
+window.gerarGraficos = function (dados) {
+  const ctxReceita = document.getElementById("graficoReceita");
+  const ctxEvolucao = document.getElementById("graficoEvolucao");
+
+  if (graficoReceita) graficoReceita.destroy();
+  if (graficoEvolucao) graficoEvolucao.destroy();
+
+  // 📊 Receita Passagens vs Encomendas
+  graficoReceita = new Chart(ctxReceita, {
+    type: "bar",
+    data: {
+      labels: ["Passagens", "Encomendas"],
+      datasets: [
+        {
+          label: "Receita (R$)",
+          data: [dados.receitaPass, dados.receitaEnc],
+          backgroundColor: ["#1f4e79", "#2ecc71"],
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+      },
+    },
+  });
+
+  // 📈 Evolução diária
+  const receitasPorData = {};
+
+  [...dados.passagens, ...dados.encomendas].forEach((item) => {
+    const data = item.dataViagem;
+    receitasPorData[data] = (receitasPorData[data] || 0) + item.valor;
+  });
+
+  const labels = Object.keys(receitasPorData).sort();
+  const valores = labels.map((data) => receitasPorData[data]);
+
+  graficoEvolucao = new Chart(ctxEvolucao, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "Receita por Dia",
+          data: valores,
+          borderColor: "#1f4e79",
+          backgroundColor: "rgba(31,78,121,0.1)",
+          tension: 0.4,
+          fill: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+    },
+  });
+};
+
+window.limparFormEncomenda = function () {
+  document.getElementById("formEncomenda").reset();
+
+  const hoje = new Date().toISOString().split("T")[0];
+  document.getElementById("dataViagemEncomenda").value = hoje;
+};
+
+// Inicialização
+window.onload = function () {
+  console.log("Sistema carregado");
+
+  console.log("Passagens carregadas:", passagens.length);
+  console.log("Encomendas carregadas:", encomendas.length);
+
+  carregarDados();
+
+  // Definir data de hoje como padrão
+  const hoje = new Date().toISOString().split("T")[0];
+  document.getElementById("dataViagem").value = hoje;
+  document.getElementById("dataViagemEncomenda").value = hoje;
+
+  console.log("Data padrão definida:", hoje);
+  console.log("Sistema pronto para uso!");
+};
+
+window.fecharModalPdf = function () {
+  document.getElementById("pdfModal").style.display = "none";
+  document.getElementById("pdfPreview").src = "";
+};
+
+// ================================
+// MÁSCARA CPF
+// ================================
+document
+  .getElementById("cpfPassageiro")
+  .addEventListener("input", function (e) {
+    let value = e.target.value.replace(/\D/g, "");
+
+    value = value.substring(0, 11);
+
+    if (value.length > 9) {
+      value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/, "$1.$2.$3-$4");
+    } else if (value.length > 6) {
+      value = value.replace(/^(\d{3})(\d{3})(\d{1,3})$/, "$1.$2.$3");
+    } else if (value.length > 3) {
+      value = value.replace(/^(\d{3})(\d{1,3})$/, "$1.$2");
+    }
+
+    e.target.value = value;
+  });
+
+// ================================
+// MÁSCARA TELEFONE
+// ================================
+document.getElementById("telefone").addEventListener("input", function (e) {
+  let value = e.target.value.replace(/\D/g, "");
+
+  value = value.substring(0, 11);
+
+  if (value.length > 10) {
+    value = value.replace(/^(\d{2})(\d{5})(\d{1,4})$/, "($1) $2-$3");
+  } else if (value.length > 6) {
+    value = value.replace(/^(\d{2})(\d{4})(\d{1,4})$/, "($1) $2-$3");
+  } else if (value.length > 2) {
+    value = value.replace(/^(\d{2})(\d{1,5})$/, "($1) $2");
+  } else if (value.length > 0) {
+    value = value.replace(/^(\d*)$/, "($1");
+  }
+
+  e.target.value = value;
+});
+
+document
+  .getElementById("valorEncomenda")
+  .addEventListener("input", function () {
+    formatarMoeda(this);
+  });
+
+document
+  .getElementById("formEncomenda")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    // 🔹 Converter valor formatado
+    let valor = document
+      .getElementById("valorEncomenda")
+      .value.replace("R$ ", "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+
+    valor = parseFloat(valor);
+
+    if (isNaN(valor)) {
+      alert("❌ Informe um valor válido.");
+      return;
+    }
+
+    const encomenda = {
+      ordem: encomendas.length + 1,
+      destinatario: document.getElementById("destinatario").value,
+      remetente: document.getElementById("remetente").value,
+      bilhete: document.getElementById("bilheteEncomenda").value,
+      local: document.getElementById("localViagem").value,
+      especie: document.getElementById("especie").value,
+      volumes: parseInt(document.getElementById("quantVolumes").value),
+      valor: valor, // ✅ agora correto
+      dataViagem: document.getElementById("dataViagemEncomenda").value,
+      dataCadastro: new Date().toISOString(),
+    };
+
+    await addDoc(collection(db, "encomendas"), encomenda);
+
+    alert("✅ Encomenda cadastrada com sucesso!");
+    limparFormEncomenda();
+    await carregarDados();
+  });
+
+// ================================
+// MÁSCARA DE MOEDA (BRL)
+// ================================
+function formatarMoeda(input) {
+  let valor = input.value.replace(/\D/g, "");
+
+  if (valor === "") {
+    input.value = "";
+    return;
+  }
+
+  valor = (parseInt(valor) / 100).toFixed(2);
+
+  valor = valor.replace(".", ",");
+  valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+  input.value = "R$ " + valor;
+}
+
+document.getElementById("valorPassagem").addEventListener("input", function () {
+  formatarMoeda(this);
+});

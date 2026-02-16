@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Navegação -Agência Lira</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="waves-decoration"></div>
+
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <div class="header-brand">
+                    <img src="img/logo.png" alt="Logo Agência Lira" class="header-logo">
+                    <div class="header-text">
+                        <h1>AGÊNCIA LIRA</h1>
+                        <p class="subtitle">Gestão Completa de Passagens e Encomendas</p>
+                    </div>
+                </div>
+
+
+                <button class="btn btn-logout" onclick="logout()">🚪 Sair</button>
+            </div>
+            <nav class="nav-tabs">
+                <button class="tab-btn active" onclick="showTab('dashboard', this)">📊 Dashboard</button>
+                <button class="tab-btn" onclick="showTab('passagens', this)">🎫 Passagens</button>
+                <button class="tab-btn" onclick="showTab('encomendas', this)">📦 Encomendas</button>
+                <button class="tab-btn" onclick="showTab('relatorios', this)">📈 Relatórios</button>
+            </nav>
+        </header>
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="content-section active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Geral</div>
+                    <div class="stat-value" id="totalGeral">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Passagens</div>
+                    <div class="stat-value" id="totalPassagens">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Encomendas</div>
+                    <div class="stat-value" id="totalEncomendas">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Lucro Líquido</div>
+                    <div class="stat-value" id="lucroLiquido">R$ 0,00</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Últimas Transações</h2>
+                <div class="table-container">
+                    <table id="ultimasTransacoes">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Cliente</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transacoesBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-light);">Nenhuma transação
+                                    registrada</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASSAGENS -->
+        <div id="passagens" class="content-section">
+            <div class="card">
+                <h2>Nova Passagem</h2>
+                <form id="formPassagem">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nome do Passageiro *</label>
+                            <input type="text" id="nomePassageiro" required>
+                        </div>
+                        <div class="form-group">
+                            <label>CPF</label>
+                            <input type="text" id="cpfPassageiro" placeholder="000.000.000-00" maxlength="14"
+                                inputmode="numeric">
+                        </div>
+                        <div class="form-group">
+                            <label>Data de Nascimento</label>
+                            <input type="date" id="dataNascimento">
+                        </div>
+                        <div class="form-group">
+                            <label>Telefone</label>
+                            <input type="tel" id="telefone" placeholder="(00) 00000-0000" maxlength="15"
+                                inputmode="numeric">
+                        </div>
+                        <div class="form-group">
+                            <label>Embarque *</label>
+                            <select id="embarque" required>
+                                <option value="">Selecione...</option>
+                                <option value="MANAUS">MANAUS</option>
+                                <option value="ORIXIMINÁ">ORIXIMINÁ</option>
+                                <option value="PARINTINS">PARINTINS</option>
+                                <option value="SANTARÉM">SANTARÉM</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Destino *</label>
+                            <select id="destino" required>
+                                <option value="">Selecione...</option>
+                                <option value="MANAUS">MANAUS</option>
+                                <option value="ORIXIMINÁ">ORIXIMINÁ</option>
+                                <option value="PARINTINS">PARINTINS</option>
+                                <option value="SANTARÉM">SANTARÉM</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Número do Bilhete *</label>
+                            <input type="text" id="bilhete" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor (R$) *</label>
+                            <input type="text" id="valorPassagem" placeholder="R$ 0,00" inputmode="numeric" required>
+
+                        </div>
+                        <div class="form-group">
+                            <label>Data da Viagem *</label>
+                            <input type="date" id="dataViagem" required>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button type="submit" class="btn">💾 Salvar Passagem</button>
+                        <button type="button" class="btn btn-secondary" onclick="limparFormPassagem()">🔄
+                            Limpar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>Lista de Passagens</h2>
+                <div class="filter-section">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Filtrar por Data</label>
+                            <input type="date" id="filtroDataPassagem" onchange="filtrarPassagens()">
+                        </div>
+                        <div class="form-group">
+                            <label>Filtrar por Status</label>
+                            <select id="filtroStatusPassagem" onchange="filtrarPassagens()">
+                                <option value="">Todos</option>
+                                <option value="ATIVO">Ativo</option>
+                                <option value="CANCELADO">Cancelado</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Bilhete</th>
+                                <th>Passageiro</th>
+                                <th>CPF</th>
+                                <th>Embarque</th>
+                                <th>Destino</th>
+                                <th>Data Viagem</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="passagensBody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; color: var(--text-light);">Nenhuma passagem
+                                    cadastrada</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ENCOMENDAS -->
+        <div id="encomendas" class="content-section">
+            <div class="card">
+                <h2>Nova Encomenda</h2>
+                <form id="formEncomenda">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Destinatário *</label>
+                            <input type="text" id="destinatario" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Remetente</label>
+                            <input type="text" id="remetente">
+                        </div>
+                        <div class="form-group">
+                            <label>Número do Bilhete</label>
+                            <input type="text" id="bilheteEncomenda">
+                        </div>
+                        <div class="form-group">
+                            <label>Local da Viagem *</label>
+                            <select id="localViagem" required>
+                                <option value="">Selecione...</option>
+                                <option value="SACO">SACO</option>
+                                <option value="PORÃO">PORÃO</option>
+                                <option value="GELO">GELO/FRIGORÍFICO</option>
+                                <option value="Dest. Duplo">DESTINO DUPLO</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Espécie *</label>
+                            <input type="text" id="especie" placeholder="Ex: 01 ENV.C/ DOC." required>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantidade de Volumes *</label>
+                            <input type="number" id="quantVolumes" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor a Pagar (R$) *</label>
+                            <input type="text" id="valorEncomenda" placeholder="R$ 0,00" inputmode="numeric" required>
+
+                        </div>
+                        <div class="form-group">
+                            <label>Data da Viagem *</label>
+                            <input type="date" id="dataViagemEncomenda" required>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button type="submit" class="btn">💾 Salvar Encomenda</button>
+                        <button type="button" class="btn btn-secondary" onclick="limparFormEncomenda()">🔄
+                            Limpar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>Lista de Encomendas</h2>
+                <div class="filter-section">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Filtrar por Data</label>
+                            <input type="date" id="filtroDataEncomenda" onchange="filtrarEncomendas()">
+                        </div>
+                        <div class="form-group">
+                            <label>Filtrar por Local</label>
+                            <select id="filtroLocalEncomenda" onchange="filtrarEncomendas()">
+                                <option value="">Todos</option>
+                                <option value="SACO">SACO</option>
+                                <option value="PORÃO">PORÃO</option>
+                                <option value="GELO">GELO/FRIGORÍFICO</option>
+                                <option value="Dest. Duplo">DESTINO DUPLO</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ordem</th>
+                                <th>Destinatário</th>
+                                <th>Remetente</th>
+                                <th>Bilhete</th>
+                                <th>Local</th>
+                                <th>Espécie</th>
+                                <th>Volumes</th>
+                                <th>Valor</th>
+                                <th>Data</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="encomendasBody">
+                            <tr>
+                                <td colspan="10" style="text-align: center; color: var(--text-light);">Nenhuma encomenda
+                                    cadastrada</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RELATÓRIOS -->
+        <div id="relatorios" class="content-section">
+            <div class="card">
+                <h2>Relatórios Financeiros</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Data Inicial</label>
+                        <input type="date" id="dataInicial">
+                    </div>
+                    <div class="form-group">
+                        <label>Data Final</label>
+                        <input type="date" id="dataFinal">
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn" onclick="gerarRelatorio()">📊 Gerar Relatório</button>
+                    <button class="btn btn-secondary" onclick="gerarPrestacaoContas()">📄 Gerar Prestação de Contas
+                        (PDF)</button>
+                </div>
+            </div>
+
+            <div class="card" id="relatorioResultado" style="display: none;">
+                <h2>Resultado do Período</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Receita Passagens</div>
+                        <div class="stat-value" id="receitaPassagens">R$ 0,00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Receita Encomendas</div>
+                        <div class="stat-value" id="receitaEncomendas">R$ 0,00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Comissão Agência</div>
+                        <div class="stat-value" id="comissaoAgencia">R$ 0,00</div>
+                        <small style="color: var(--text-light); font-size: 0.8rem;">10% passagens + 30%
+                            encomendas</small>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Lucro Líquido</div>
+                        <div class="stat-value" id="lucroRelatorio">R$ 0,00</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:20px;">
+                    <h3 style="margin-bottom:15px;">Análise Visual</h3>
+
+                    <div class="graficos-grid">
+
+                        <div class="grafico-card">
+                            <canvas id="graficoReceita"></canvas>
+                        </div>
+
+                        <div class="grafico-card">
+                            <canvas id="graficoEvolucao"></canvas>
+                        </div>
+
+                    </div>
+
+
+                    <div class="grafico-card full-width">
+                        <canvas id="graficoEvolucao"></canvas>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL VISUALIZAÇÃO PDF -->
+    <div id="pdfModal" class="pdf-modal">
+        <div class="pdf-content">
+            <div class="pdf-header">
+                <h3>Visualização do Comprovante</h3>
+                <div>
+                    <button id="btnBaixarPdf" class="btn btn-small">📥 Baixar</button>
+                    <button onclick="fecharModalPdf()" class="btn btn-small btn-danger">✖</button>
+                </div>
+            </div>
+
+            <iframe id="pdfPreview"></iframe>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="script.js"></script>
+</body>
+
+</html>
