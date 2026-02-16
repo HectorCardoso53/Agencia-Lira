@@ -1,0 +1,150 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0a2540, #1a4d7e);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Container central */
+.login-wrapper {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+}
+
+.login-container {
+    background: rgba(255, 255, 255, 0.98);
+    padding: 50px 40px;
+    border-radius: 18px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+}
+
+/* Logo / título */
+.logo {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #0a2540;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    margin-bottom: 35px;
+    font-size: 0.95rem;
+}
+
+/* Inputs */
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+    color: #2c3e50;
+}
+
+input {
+    width: 100%;
+    padding: 14px 15px;
+    border-radius: 10px;
+    border: 2px solid #e0e6ed;
+    font-size: 0.95rem;
+    transition: 0.3s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: #2d7ab8;
+    box-shadow: 0 0 0 3px rgba(45,122,184,0.15);
+}
+
+/* Botão */
+button {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, #2d7ab8, #1a4d7e);
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(45,122,184,0.4);
+}
+
+/* Mensagem de erro */
+.erro {
+    color: #e74c3c;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.97);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 18px;
+    padding: 30px;
+    text-align: center;
+}
+
+.loading-text {
+    margin-bottom: 20px;
+    font-weight: 500;
+    color: #0a2540;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e6ed;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #2d7ab8, #1a4d7e);
+    border-radius: 20px;
+    transition: width 0.3s ease;
+}
+
+
+.logo {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.logo img {
+    width: 180px;
+    max-width: 100%;
+    height: auto;
+}
