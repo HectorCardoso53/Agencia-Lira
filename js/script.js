@@ -1,5 +1,7 @@
-import { auth, db } from "./firebase.js";
-import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { auth, db, storage } from "./firebase.js";
+import { signOut, onAuthStateChanged } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
 import {
   collection,
   addDoc,
@@ -9,8 +11,16 @@ import {
   updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
 let passagens = [];
 let encomendas = [];
+
+let usuarioLogadoEmail = "";
 
 let graficoReceita;
 let graficoEvolucao;
@@ -98,6 +108,8 @@ window.logout = async function () {
 };
 
 async function carregarDados() {
+  
+
   passagens = [];
   encomendas = [];
 
@@ -313,7 +325,6 @@ function renderizarEncomendas() {
 
   tbody.innerHTML = encomendas
     .map((e) => {
-
       const status = e.statusPagamento || "PENDENTE";
 
       return `
@@ -368,8 +379,6 @@ function renderizarEncomendas() {
     .join("");
 }
 
-
-
 window.excluirEncomenda = async function (id) {
   if (confirm("Deseja realmente excluir esta encomenda?")) {
     await deleteDoc(doc(db, "encomendas", id));
@@ -385,13 +394,13 @@ window.filtrarEncomendas = function () {
 
   if (dataFiltro) {
     encomendasFiltradas = encomendasFiltradas.filter(
-      (e) => e.dataViagem === dataFiltro
+      (e) => e.dataViagem === dataFiltro,
     );
   }
 
   if (localFiltro) {
     encomendasFiltradas = encomendasFiltradas.filter(
-      (e) => e.local === localFiltro
+      (e) => e.local === localFiltro,
     );
   }
 
@@ -459,14 +468,12 @@ window.filtrarEncomendas = function () {
     .join("");
 };
 
-
 window.marcarComoPago = async function (id) {
-
   if (!confirm("Confirmar pagamento desta encomenda?")) return;
 
   await updateDoc(doc(db, "encomendas", id), {
     statusPagamento: "PAGO",
-    dataPagamento: new Date().toISOString()
+    dataPagamento: new Date().toISOString(),
   });
 
   alert("✅ Pagamento confirmado com sucesso!");
@@ -699,6 +706,10 @@ window.gerarComprovantePassagem = function (id) {
   doc.setFont(undefined, "bold");
   doc.text(`Valor: R$ ${passagem.valor.toFixed(2)}`, 15, y + 12);
 
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(`Responsável: ${usuarioLogadoEmail}`, 15, 275);
+
   // ===== RODAPÉ =====
   doc.setFontSize(9);
   doc.setTextColor(120);
@@ -815,7 +826,7 @@ window.gerarComprovanteEncomenda = function (id) {
   doc.text(
     `Data: ${new Date(encomenda.dataViagem).toLocaleDateString("pt-BR")}`,
     15,
-    y
+    y,
   );
   y += 12;
 
@@ -840,15 +851,16 @@ window.gerarComprovanteEncomenda = function (id) {
 
   doc.setTextColor(0, 0, 0);
 
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(`Responsável: ${usuarioLogadoEmail}`, 15, 275);
+
   // ===== RODAPÉ =====
   doc.setFontSize(9);
   doc.setTextColor(120);
-  doc.text(
-    `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
-    105,
-    285,
-    { align: "center" }
-  );
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, 285, {
+    align: "center",
+  });
 
   // ===== PREVIEW =====
   const pdfUrl = doc.output("bloburl");
@@ -861,31 +873,46 @@ window.gerarComprovanteEncomenda = function (id) {
   };
 
   // ===== WHATSAPP =====
-  document.getElementById("btnWhatsapp").onclick = function () {
-    const statusTexto =
-      encomenda.statusPagamento === "PAGO" ? "✅ *PAGO*" : "❌ *PENDENTE*";
+  document.getElementById("btnWhatsapp").onclick = async function () {
+    if (!encomenda.telefone) {
+      alert("❌ Nenhum telefone cadastrado.");
+      return;
+    }
 
-    const mensagem = `🛥️ *AGÊNCIA LIRA*
-━━━━━━━━━━━━━━━━━━
+    try {
+      // 🔹 Gerar o PDF como blob
+      const pdfBlob = doc.output("blob");
 
-📦 *COMPROVANTE DE ENCOMENDA*
+      // 🔹 Nome do arquivo no Storage
+      const nomeArquivo = `comprovantes/encomenda_${encomenda.id}.pdf`;
 
-🔢 *Ordem:* ${encomenda.ordem}
-👤 *Destinatário:* ${encomenda.destinatario}
-📍 *Local:* ${encomenda.local}
-📦 *Volumes:* ${encomenda.volumes}
-📅 *Data:* ${new Date(encomenda.dataViagem).toLocaleDateString("pt-BR")}
+      // 🔹 Criar referência
+      const storageRef = ref(storage, nomeArquivo);
 
-💰 *Valor:* R$ ${encomenda.valor.toFixed(2)}
-💳 *Pagamento:* ${statusTexto}
+      // 🔹 Enviar para o Firebase Storage
+      await uploadBytes(storageRef, pdfBlob);
 
-━━━━━━━━━━━━━━━━━━
-Agência Lira 🚢`;
+      // 🔹 Pegar link público
+      const url = await getDownloadURL(storageRef);
 
-    enviarWhatsapp(encomenda.telefone, mensagem);
+      // 🔹 Mensagem com link
+      const mensagem = `
+🛥️ *AGÊNCIA LIRA*
+
+📦 Seu comprovante em PDF está disponível no link abaixo:
+
+${url}
+
+Obrigado por escolher a Agência Lira!
+`;
+
+      enviarWhatsapp(encomenda.telefone, mensagem);
+    } catch (error) {
+      console.error("Erro ao enviar PDF:", error);
+      alert("❌ Erro ao enviar PDF.");
+    }
   };
 };
-
 
 window.gerarPrestacaoContas = function () {
   if (!window.dadosRelatorio) {
@@ -1136,22 +1163,24 @@ window.limparFormEncomenda = function () {
 };
 
 // Inicialização
-window.onload = function () {
-  console.log("Sistema carregado");
+onAuthStateChanged(auth, (user) => {
 
-  console.log("Passagens carregadas:", passagens.length);
-  console.log("Encomendas carregadas:", encomendas.length);
+  if (!user) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  usuarioLogadoEmail = user.email;
+
+  console.log("Usuário logado:", usuarioLogadoEmail);
 
   carregarDados();
 
-  // Definir data de hoje como padrão
   const hoje = new Date().toISOString().split("T")[0];
   document.getElementById("dataViagem").value = hoje;
   document.getElementById("dataViagemEncomenda").value = hoje;
 
-  console.log("Data padrão definida:", hoje);
-  console.log("Sistema pronto para uso!");
-};
+});
 
 window.fecharModalPdf = function () {
   document.getElementById("pdfModal").style.display = "none";

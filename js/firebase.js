@@ -6,6 +6,7 @@ from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import { getFirestore }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 
 
@@ -23,3 +24,4 @@ const app = initializeApp(firebaseConfig);
 // 👇 AGORA SIM EXPORTANDO
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
