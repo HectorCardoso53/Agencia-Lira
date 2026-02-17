@@ -1683,3 +1683,26 @@ input[type="email"]:valid {
   }
 
 }
+
+.status-pagamento {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* 🟢 PAGO */
+.status-pagamento.pago {
+  background: #eafaf1;
+  color: #27ae60;
+  border: 1px solid #27ae60;
+}
+
+/* 🔴 PENDENTE */
+.status-pagamento.pendente {
+  background: #fdecea;
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+}
+

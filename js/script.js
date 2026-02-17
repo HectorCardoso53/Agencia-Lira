@@ -211,6 +211,7 @@ document
     }
 
     const passagem = {
+      ordem: passagens.length + 1, // 🔥 sequência 1,2,3...
       bilhete: bilheteVal,
       nome,
       cpf,
@@ -234,6 +235,7 @@ document
 
 window.limparFormPassagem = function () {
   document.getElementById("formPassagem").reset();
+  document.getElementById("bilhete").value = gerarNumeroBilhete();
   const hoje = new Date().toISOString().split("T")[0];
   document.getElementById("dataViagem").value = hoje;
 };
@@ -256,6 +258,7 @@ function renderizarPassagens() {
     .map(
       (p) => `
     <tr>
+      <td>${p.ordem}</td>
       <td>${p.bilhete}</td>
       <td>${p.nome}</td>
       <td>${p.cpf}</td>
@@ -381,7 +384,10 @@ function renderizarEncomendas() {
 
   tbody.innerHTML = encomendas
     .map((e) => {
-      const status = (e.statusPagamento || "PENDENTE").toLowerCase();
+
+      const status = e.statusPagamento || "PENDENTE";
+      const classeStatus =
+        status === "PAGO" ? "pago" : "pendente";
 
       return `
       <tr>
@@ -397,8 +403,8 @@ function renderizarEncomendas() {
         <td>${new Date(e.dataViagem).toLocaleDateString("pt-BR")}</td>
 
         <td>
-          <span class="status-badge status-${status}">
-            ${status.toUpperCase()}
+          <span class="status-pagamento ${classeStatus}">
+            ${status}
           </span>
         </td>
 
@@ -406,7 +412,7 @@ function renderizarEncomendas() {
           <div class="action-buttons">
 
             ${
-              status !== "pago"
+              status !== "PAGO"
                 ? `
                 <button class="btn btn-small btn-success"
                   onclick="marcarComoPago('${e.id}')">
@@ -429,10 +435,11 @@ function renderizarEncomendas() {
           </div>
         </td>
       </tr>
-    `;
+      `;
     })
     .join("");
 }
+
 
 window.excluirEncomenda = async function (id) {
   if (confirm("Deseja realmente excluir esta encomenda?")) {
@@ -658,7 +665,6 @@ window.gerarRelatorio = function () {
 };
 
 window.enviarWhatsapp = function (numeroOriginal, mensagemTexto) {
-
   if (!numeroOriginal) {
     alert("❌ Nenhum telefone cadastrado.");
     return;
@@ -687,7 +693,6 @@ window.enviarWhatsapp = function (numeroOriginal, mensagemTexto) {
   }
 };
 
-
 window.gerarComprovantePassagem = function (id) {
   const passagem = passagens.find((p) => p.id === id);
   if (!passagem) return alert("❌ Passagem não encontrada!");
@@ -701,7 +706,6 @@ window.gerarComprovantePassagem = function (id) {
   doc.setFillColor(15, 45, 90);
   doc.rect(0, 0, 210, 40, "F");
 
-  // LOGO
   doc.addImage(logoBase64, "PNG", 15, 8, 25, 25);
 
   doc.setTextColor(255, 255, 255);
@@ -712,7 +716,6 @@ window.gerarComprovantePassagem = function (id) {
   doc.setFontSize(11);
   doc.text("COMPROVANTE DE PASSAGEM", 105, 28, { align: "center" });
 
-  // 🔹 LINHA SEPARADORA
   doc.setDrawColor(180);
   doc.line(15, 45, 195, 45);
 
@@ -725,30 +728,40 @@ window.gerarComprovantePassagem = function (id) {
     doc.setFont(undefined, "bold");
     doc.text(titulo, 20, y);
     doc.setFont(undefined, "normal");
-    doc.text(String(valor), 80, y);
+    doc.text(String(valor), 85, y);
     y += 8;
   };
 
   linha("Protocolo:", protocolo);
+  linha("Bilhete:", passagem.bilhete); // 🔥 agora organizado
   linha("Nome:", passagem.nome);
   linha("CPF:", passagem.cpf);
   linha("Telefone:", passagem.telefone);
   linha("Email:", passagem.email);
-  linha("Bilhete:", passagem.bilhete);
   linha("Embarque:", passagem.embarque);
   linha("Destino:", passagem.destino);
   linha(
     "Data da Viagem:",
-    new Date(passagem.dataViagem).toLocaleDateString("pt-BR"),
+    new Date(passagem.dataViagem).toLocaleDateString("pt-BR")
   );
-  linha("Valor Pago:", `R$ ${passagem.valor.toFixed(2)}`);
+  linha("Valor:", `R$ ${passagem.valor.toFixed(2)}`);
 
-  // 🔹 SELO PAGO
-  doc.setDrawColor(39, 174, 96);
-  doc.setTextColor(39, 174, 96);
-  doc.setFontSize(30);
+  // 🔥 STATUS ORGANIZADO
+  y += 5;
+
   doc.setFont(undefined, "bold");
-  doc.text("PAGO", 140, 110, { angle: 25 });
+  doc.text("Status:", 20, y);
+
+  doc.setFont(undefined, "bold");
+
+  if (passagem.status === "ATIVO") {
+    doc.setTextColor(39, 174, 96); // verde
+  } else {
+    doc.setTextColor(231, 76, 60); // vermelho
+  }
+
+  doc.text(passagem.status, 85, y);
+  doc.setTextColor(0, 0, 0);
 
   // 🔹 RODAPÉ
   doc.setFontSize(9);
@@ -756,44 +769,44 @@ window.gerarComprovantePassagem = function (id) {
   doc.text(`Responsável: ${usuarioLogadoEmail}`, 20, 280);
   doc.text(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, 20, 285);
 
+  // 🔥 PREVIEW
   const pdfUrl = doc.output("bloburl");
   document.getElementById("pdfPreview").src = pdfUrl;
   document.getElementById("pdfModal").style.display = "flex";
 
+  // 🔽 BAIXAR
   document.getElementById("btnBaixarPdf").onclick = function () {
     doc.save(`Passagem_${passagem.bilhete}.pdf`);
   };
 
- document.getElementById("btnWhatsapp").onclick = async function () {
+  // 📲 WHATSAPP
+  document.getElementById("btnWhatsapp").onclick = async function () {
+    const confirmar = confirm("Deseja realmente enviar o comprovante?");
+    if (!confirmar) return;
 
-  const confirmar = confirm("Deseja realmente enviar o comprovante?");
-  if (!confirmar) return;
+    if (!passagem.telefone) {
+      alert("❌ Telefone não cadastrado.");
+      return;
+    }
 
-  if (!passagem.telefone) {
-    alert("❌ Telefone não cadastrado.");
-    return;
-  }
+    try {
+      mostrarLoading("Preparando comprovante...");
 
-  try {
+      const pdfBlob = doc.output("blob");
 
-    mostrarLoading("Preparando comprovante...");
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, "0");
 
-    const pdfBlob = doc.output("blob");
+      const nomeArquivo = `passagem_${passagem.bilhete}.pdf`;
+      const caminho = `comprovantes/${usuarioLogadoEmail}/${ano}/${mes}/passagens/${nomeArquivo}`;
 
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+      const storageRef = ref(storage, caminho);
 
-    const nomeArquivo = `passagem_${passagem.bilhete}.pdf`;
-    const caminho = `comprovantes/${usuarioLogadoEmail}/${ano}/${mes}/passagens/${nomeArquivo}`;
+      await uploadBytes(storageRef, pdfBlob);
+      const downloadURL = await getDownloadURL(storageRef);
 
-    const storageRef = ref(storage, caminho);
-
-    await uploadBytes(storageRef, pdfBlob);
-
-    const downloadURL = await getDownloadURL(storageRef);
-
-    const mensagem = `
+      const mensagem = `
 🛥️ *AGÊNCIA LIRA*
 
 Olá *${passagem.nome}* 👋
@@ -802,19 +815,17 @@ Seu comprovante:
 ${downloadURL}
 `;
 
-    esconderLoading();
+      esconderLoading();
+      enviarWhatsapp(passagem.telefone, mensagem);
 
-    enviarWhatsapp(passagem.telefone, mensagem);
-
-  } catch (error) {
-    esconderLoading();
-    console.error(error);
-    alert("❌ Erro ao enviar.");
-  }
+    } catch (error) {
+      esconderLoading();
+      console.error(error);
+      alert("❌ Erro ao enviar.");
+    }
+  };
 };
 
-
-};
 
 window.gerarComprovanteEncomenda = function (id) {
   const encomenda = encomendas.find((e) => e.id === id);
@@ -857,6 +868,7 @@ window.gerarComprovanteEncomenda = function (id) {
 
   linha("Protocolo:", protocolo);
   linha("Ordem:", encomenda.ordem);
+  linha("Número do Bilhete:", encomenda.bilhete); 
   linha("Destinatário:", encomenda.destinatario);
   linha("Remetente:", encomenda.remetente);
   linha("Telefone:", encomenda.telefone);
@@ -865,15 +877,25 @@ window.gerarComprovanteEncomenda = function (id) {
   linha("Espécie:", encomenda.especie);
   linha("Volumes:", encomenda.volumes);
   linha("Valor:", `R$ ${encomenda.valor.toFixed(2)}`);
-  linha("Status:", encomenda.statusPagamento);
 
-  // 🔹 SELO PAGO
-  if (encomenda.statusPagamento === "PAGO") {
-    doc.setTextColor(39, 174, 96);
-    doc.setFontSize(30);
-    doc.setFont(undefined, "bold");
-    doc.text("PAGO", 140, 120, { angle: 25 });
-  }
+  // STATUS BONITO E ORGANIZADO
+y += 5;
+
+doc.setFont(undefined, "bold");
+doc.text("Status do Pagamento:", 20, y);
+
+doc.setFont(undefined, "bold");
+
+if (encomenda.statusPagamento === "PAGO") {
+  doc.setTextColor(39, 174, 96); // verde
+} else {
+  doc.setTextColor(231, 76, 60); // vermelho
+}
+
+doc.text(encomenda.statusPagamento, 90, y);
+
+doc.setTextColor(0, 0, 0);
+
 
   doc.setFontSize(9);
   doc.setTextColor(120);
@@ -891,36 +913,34 @@ window.gerarComprovanteEncomenda = function (id) {
   };
 
   // 📲 WHATSAPP
- document.getElementById("btnWhatsapp").onclick = async function () {
+  document.getElementById("btnWhatsapp").onclick = async function () {
+    const confirmar = confirm("Deseja realmente enviar o comprovante?");
+    if (!confirmar) return;
 
-  const confirmar = confirm("Deseja realmente enviar o comprovante?");
-  if (!confirmar) return;
+    if (!encomenda.telefone) {
+      alert("❌ Telefone não cadastrado.");
+      return;
+    }
 
-  if (!encomenda.telefone) {
-    alert("❌ Telefone não cadastrado.");
-    return;
-  }
+    try {
+      mostrarLoading("Preparando comprovante...");
 
-  try {
+      const pdfBlob = doc.output("blob");
 
-    mostrarLoading("Preparando comprovante...");
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, "0");
 
-    const pdfBlob = doc.output("blob");
+      const nomeArquivo = `encomenda_${encomenda.ordem}.pdf`;
+      const caminho = `comprovantes/${usuarioLogadoEmail}/${ano}/${mes}/encomendas/${nomeArquivo}`;
 
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+      const storageRef = ref(storage, caminho);
 
-    const nomeArquivo = `encomenda_${encomenda.ordem}.pdf`;
-    const caminho = `comprovantes/${usuarioLogadoEmail}/${ano}/${mes}/encomendas/${nomeArquivo}`;
+      await uploadBytes(storageRef, pdfBlob);
 
-    const storageRef = ref(storage, caminho);
+      const downloadURL = await getDownloadURL(storageRef);
 
-    await uploadBytes(storageRef, pdfBlob);
-
-    const downloadURL = await getDownloadURL(storageRef);
-
-    const mensagem = `
+      const mensagem = `
 📦 *AGÊNCIA LIRA*
 
 Olá *${encomenda.destinatario}* 👋
@@ -929,18 +949,15 @@ Seu comprovante:
 ${downloadURL}
 `;
 
-    esconderLoading();
+      esconderLoading();
 
-    enviarWhatsapp(encomenda.telefone, mensagem);
-
-  } catch (error) {
-    esconderLoading();
-    console.error(error);
-    alert("❌ Erro ao enviar.");
-  }
-};
-
-
+      enviarWhatsapp(encomenda.telefone, mensagem);
+    } catch (error) {
+      esconderLoading();
+      console.error(error);
+      alert("❌ Erro ao enviar.");
+    }
+  };
 };
 
 window.gerarPrestacaoContas = function () {
@@ -1186,7 +1203,7 @@ window.gerarGraficos = function (dados) {
 
 window.limparFormEncomenda = function () {
   document.getElementById("formEncomenda").reset();
-
+  document.getElementById("bilheteEncomenda").value = gerarNumeroEncomenda();
   const hoje = new Date().toISOString().split("T")[0];
   document.getElementById("dataViagemEncomenda").value = hoje;
 };
@@ -1257,9 +1274,7 @@ document.getElementById("telefone").addEventListener("input", function (e) {
   e.target.value = value;
 });
 
-// ================================
-// MÁSCARA TELEFONE ENCOMENDA
-// ================================
+
 document
   .getElementById("telefoneEncomenda")
   .addEventListener("input", function (e) {
@@ -1391,3 +1406,24 @@ function atualizarProgresso(valor) {
 function esconderLoading() {
   document.getElementById("loadingModal").style.display = "none";
 }
+
+function gerarNumeroBilhete() {
+  const agora = new Date();
+  const timestamp = agora.getTime(); // número único
+  const random = Math.floor(Math.random() * 100);
+
+  return "P-" + timestamp.toString().slice(-6) + random;
+}
+
+function gerarNumeroEncomenda() {
+  const agora = new Date();
+  const timestamp = agora.getTime();
+  const random = Math.floor(Math.random() * 100);
+
+  return "E-" + timestamp.toString().slice(-6) + random;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("bilhete").value = gerarNumeroBilhete();
+  document.getElementById("bilheteEncomenda").value = gerarNumeroEncomenda();
+});
