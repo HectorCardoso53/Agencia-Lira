@@ -714,3 +714,12 @@ tbody tr:hover {
   color: #e74c3c;
   border: 1px solid #e74c3c;
 }
+
+
+input[type="email"]:invalid {
+    border: 2px solid #e74c3c;
+}
+
+input[type="email"]:valid {
+    border: 2px solid #2ecc71;
+}

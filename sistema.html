@@ -108,26 +108,36 @@
         <div id="passagens" class="content-section">
             <div class="card">
                 <h2>Nova Passagem</h2>
+
                 <form id="formPassagem">
                     <div class="form-grid">
+
                         <div class="form-group">
                             <label>Nome do Passageiro *</label>
                             <input type="text" id="nomePassageiro" required>
                         </div>
+
                         <div class="form-group">
-                            <label>CPF</label>
-                            <input type="text" id="cpfPassageiro" placeholder="000.000.000-00" maxlength="14"
-                                inputmode="numeric">
+                            <label>CPF *</label>
+                            <input type="text" id="cpfPassageiro" placeholder="000.000.000-00" maxlength="14" required>
                         </div>
+
                         <div class="form-group">
-                            <label>Data de Nascimento</label>
-                            <input type="date" id="dataNascimento">
+                            <label>Data de Nascimento *</label>
+                            <input type="date" id="dataNascimento" required>
                         </div>
+
                         <div class="form-group">
-                            <label>Telefone</label>
-                            <input type="tel" id="telefone" placeholder="(00) 00000-0000" maxlength="15"
-                                inputmode="numeric">
+                            <label>Telefone *</label>
+                            <input type="tel" id="telefone" placeholder="(00) 00000-0000" maxlength="15" required>
                         </div>
+
+                        <div class="form-group">
+                            <label>Email do Passageiro *</label>
+                            <input type="email" id="emailPassageiro" placeholder="cliente@email.com"
+                                autocomplete="email" required>
+                        </div>
+
                         <div class="form-group">
                             <label>Embarque *</label>
                             <select id="embarque" required>
@@ -138,6 +148,7 @@
                                 <option value="SANTARÉM">SANTARÉM</option>
                             </select>
                         </div>
+
                         <div class="form-group">
                             <label>Destino *</label>
                             <select id="destino" required>
@@ -148,20 +159,24 @@
                                 <option value="SANTARÉM">SANTARÉM</option>
                             </select>
                         </div>
+
                         <div class="form-group">
                             <label>Número do Bilhete *</label>
                             <input type="text" id="bilhete" required>
                         </div>
+
                         <div class="form-group">
                             <label>Valor (R$) *</label>
-                            <input type="text" id="valorPassagem" placeholder="R$ 0,00" inputmode="numeric" required>
-
+                            <input type="text" id="valorPassagem" placeholder="R$ 0,00" required>
                         </div>
+
                         <div class="form-group">
                             <label>Data da Viagem *</label>
                             <input type="date" id="dataViagem" required>
                         </div>
+
                     </div>
+
                     <div class="action-buttons">
                         <button type="submit" class="btn">💾 Salvar Passagem</button>
                         <button type="button" class="btn btn-secondary" onclick="limparFormPassagem()">🔄
@@ -170,14 +185,17 @@
                 </form>
             </div>
 
+            <!-- LISTA -->
             <div class="card">
                 <h2>Lista de Passagens</h2>
+
                 <div class="filter-section">
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Filtrar por Data</label>
                             <input type="date" id="filtroDataPassagem" onchange="filtrarPassagens()">
                         </div>
+
                         <div class="form-group">
                             <label>Filtrar por Status</label>
                             <select id="filtroStatusPassagem" onchange="filtrarPassagens()">
@@ -188,6 +206,7 @@
                         </div>
                     </div>
                 </div>
+
                 <div class="table-container">
                     <table>
                         <thead>
@@ -195,43 +214,54 @@
                                 <th>Bilhete</th>
                                 <th>Passageiro</th>
                                 <th>CPF</th>
+                                <th>Email</th>
                                 <th>Embarque</th>
                                 <th>Destino</th>
-                                <th>Data Viagem</th>
+                                <th>Data</th>
                                 <th>Valor</th>
                                 <th>Status</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
+
                         <tbody id="passagensBody">
                             <tr>
-                                <td colspan="9" style="text-align: center; color: var(--text-light);">Nenhuma passagem
-                                    cadastrada</td>
+                                <td colspan="10" style="text-align:center; color: var(--text-light);">
+                                    Nenhuma passagem cadastrada
+                                </td>
                             </tr>
                         </tbody>
+
                     </table>
                 </div>
             </div>
         </div>
 
+
         <!-- ENCOMENDAS -->
         <div id="encomendas" class="content-section">
+
             <div class="card">
                 <h2>Nova Encomenda</h2>
+
                 <form id="formEncomenda">
                     <div class="form-grid">
+
                         <div class="form-group">
                             <label>Destinatário *</label>
                             <input type="text" id="destinatario" required>
                         </div>
+
                         <div class="form-group">
-                            <label>Remetente</label>
-                            <input type="text" id="remetente">
+                            <label>Remetente *</label>
+                            <input type="text" id="remetente" required>
                         </div>
+
                         <div class="form-group">
-                            <label>Número do Bilhete</label>
-                            <input type="text" id="bilheteEncomenda">
+                            <label>Número do Bilhete *</label>
+                            <input type="text" id="bilheteEncomenda" required>
                         </div>
+
                         <div class="form-group">
                             <label>Local da Viagem *</label>
                             <select id="localViagem" required>
@@ -242,35 +272,50 @@
                                 <option value="Dest. Duplo">DESTINO DUPLO</option>
                             </select>
                         </div>
+
                         <div class="form-group">
                             <label>Espécie *</label>
-                            <input type="text" id="especie" placeholder="Ex: 01 ENV.C/ DOC." required>
+                            <input type="text" id="especie" required>
                         </div>
+
                         <div class="form-group">
-                            <label>Telefone</label>
-                            <input type="tel" id="telefoneEncomenda">
+                            <label>Telefone *</label>
+                            <input type="tel" id="telefoneEncomenda" placeholder="(00) 00000-0000" maxlength="15"
+                                required>
                         </div>
+
+                        <div class="form-group">
+                            <label>Email do Destinatário *</label>
+                            <input type="email" id="emailEncomenda" placeholder="cliente@email.com" autocomplete="email"
+                                required>
+                        </div>
+
                         <div class="form-group">
                             <label>Quantidade de Volumes *</label>
-                            <input type="number" id="quantVolumes" min="1" value="1" required>
+                            <input type="number" id="quantVolumes" min="1" required>
                         </div>
+
                         <div class="form-group">
                             <label>Valor a Pagar (R$) *</label>
-                            <input type="text" id="valorEncomenda" placeholder="R$ 0,00" inputmode="numeric" required>
-
+                            <input type="text" id="valorEncomenda" placeholder="R$ 0,00" required>
                         </div>
+
                         <div class="form-group">
                             <label>Data da Viagem *</label>
                             <input type="date" id="dataViagemEncomenda" required>
                         </div>
+
                         <div class="form-group">
                             <label>Status do Pagamento *</label>
                             <select id="statusPagamento" required>
+                                <option value="">Selecione...</option>
                                 <option value="PAGO">PAGO</option>
                                 <option value="PENDENTE">PENDENTE</option>
                             </select>
                         </div>
+
                     </div>
+
                     <div class="action-buttons">
                         <button type="submit" class="btn">💾 Salvar Encomenda</button>
                         <button type="button" class="btn btn-secondary" onclick="limparFormEncomenda()">🔄
@@ -279,32 +324,17 @@
                 </form>
             </div>
 
+            <!-- LISTA -->
             <div class="card">
                 <h2>Lista de Encomendas</h2>
-                <div class="filter-section">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Filtrar por Data</label>
-                            <input type="date" id="filtroDataEncomenda" onchange="filtrarEncomendas()">
-                        </div>
-                        <div class="form-group">
-                            <label>Filtrar por Local</label>
-                            <select id="filtroLocalEncomenda" onchange="filtrarEncomendas()">
-                                <option value="">Todos</option>
-                                <option value="SACO">SACO</option>
-                                <option value="PORÃO">PORÃO</option>
-                                <option value="GELO">GELO/FRIGORÍFICO</option>
-                                <option value="Dest. Duplo">DESTINO DUPLO</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
                                 <th>Ordem</th>
                                 <th>Destinatário</th>
+                                <th>Email</th>
                                 <th>Remetente</th>
                                 <th>Bilhete</th>
                                 <th>Local</th>
@@ -316,16 +346,21 @@
                                 <th>Ações</th>
                             </tr>
                         </thead>
+
                         <tbody id="encomendasBody">
                             <tr>
-                                <td colspan="11" style="text-align: center; color: var(--text-light);">Nenhuma encomenda
-                                <td colspan="10" style="text-align: center; color: var(--text-light);">Nenhuma encomenda cadastrada</td>
+                                <td colspan="12" style="text-align:center; color: var(--text-light);">
+                                    Nenhuma encomenda cadastrada
+                                </td>
                             </tr>
                         </tbody>
+
                     </table>
                 </div>
             </div>
+
         </div>
+
 
         <!-- RELATÓRIOS -->
         <div id="relatorios" class="content-section">

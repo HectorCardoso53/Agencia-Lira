@@ -1,6 +1,8 @@
 import { auth, db, storage } from "./firebase.js";
-import { signOut, onAuthStateChanged } 
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  signOut,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import {
   collection,
@@ -108,8 +110,6 @@ window.logout = async function () {
 };
 
 async function carregarDados() {
-  
-
   passagens = [];
   encomendas = [];
 
@@ -148,59 +148,77 @@ window.showTab = function (tabName, element) {
 };
 
 // PASSAGENS
-document
-  .getElementById("formPassagem")
-  .addEventListener("submit", async function (e) {
-    e.preventDefault();
+document.getElementById("formPassagem")
+.addEventListener("submit", async function (e) {
+  e.preventDefault();
 
-    console.log("Formulário de passagem submetido");
+  const nome = nomePassageiro.value.trim();
+  const cpf = cpfPassageiro.value.trim();
+  const nascimento = dataNascimento.value;
+  const telefoneVal = telefone.value.trim();
+  const emailVal = emailPassageiro.value.trim();
+  const embarqueVal = embarque.value;
+  const destinoVal = destino.value;
+  const bilheteVal = bilhete.value.trim();
+  const dataVal = dataViagem.value;
 
-    // Validar campos obrigatórios
-    const nome = document.getElementById("nomePassageiro").value.trim();
-    const embarque = document.getElementById("embarque").value;
-    const destino = document.getElementById("destino").value;
-    const bilhete = document.getElementById("bilhete").value.trim();
-    let valor = document
-      .getElementById("valorPassagem")
-      .value.replace("R$ ", "")
-      .replace(/\./g, "")
-      .replace(",", ".");
+  let valor = valorPassagem.value
+    .replace("R$ ", "")
+    .replace(/\./g, "")
+    .replace(",", ".");
 
-    valor = parseFloat(valor);
+  valor = parseFloat(valor);
 
-    const dataViagem = document.getElementById("dataViagem").value;
+  // 🔴 VALIDAÇÃO COMPLETA
+  if (
+    !nome ||
+    !cpf ||
+    !nascimento ||
+    !telefoneVal ||
+    !emailVal ||
+    !embarqueVal ||
+    !destinoVal ||
+    !bilheteVal ||
+    !dataVal ||
+    isNaN(valor) ||
+    valor <= 0
+  ) {
+    alert("❌ TODOS os campos são obrigatórios e valor deve ser maior que zero!");
+    return;
+  }
 
-    if (!nome || !embarque || !destino || !bilhete || !valor || !dataViagem) {
-      alert("❌ Por favor, preencha todos os campos obrigatórios (*)");
-      return;
-    }
+  if (cpf.replace(/\D/g, "").length !== 11) {
+    alert("❌ CPF inválido!");
+    return;
+  }
 
-    const passagem = {
-      bilhete: bilhete,
-      nome: nome,
-      cpf: document.getElementById("cpfPassageiro").value.trim(),
-      dataNascimento: document.getElementById("dataNascimento").value,
-      telefone: document.getElementById("telefone").value.trim(),
-      embarque: embarque,
-      destino: destino,
-      valor: valor,
-      dataViagem: dataViagem,
-      status: "ATIVO",
-      dataCadastro: new Date().toISOString(),
-    };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    alert("❌ Email inválido!");
+    return;
+  }
 
-    console.log("Passagem criada:", passagem);
+  const passagem = {
+    bilhete: bilheteVal,
+    nome,
+    cpf,
+    dataNascimento: nascimento,
+    telefone: telefoneVal,
+    email: emailVal,
+    embarque: embarqueVal,
+    destino: destinoVal,
+    valor,
+    dataViagem: dataVal,
+    status: "ATIVO",
+    dataCadastro: new Date().toISOString(),
+  };
 
-    await addDoc(collection(db, "passagens"), passagem);
-    await carregarDados();
+  await addDoc(collection(db, "passagens"), passagem);
 
-    console.log("Total de passagens:", passagens.length);
+  alert("✅ Passagem cadastrada com sucesso!");
+  limparFormPassagem();
+  await carregarDados();
+});
 
-    alert("✅ Passagem cadastrada com sucesso!");
-    limparFormPassagem();
-    renderizarPassagens();
-    atualizarDashboard();
-  });
 
 window.limparFormPassagem = function () {
   document.getElementById("formPassagem").reset();
@@ -211,36 +229,52 @@ window.limparFormPassagem = function () {
 function renderizarPassagens() {
   const tbody = document.getElementById("passagensBody");
 
-  if (passagens.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="9" style="text-align: center; color: var(--text-light);">Nenhuma passagem cadastrada</td></tr>';
+  if (!passagens || passagens.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10"
+          style="text-align:center; color: var(--text-light);">
+          Nenhuma passagem cadastrada
+        </td>
+      </tr>`;
     return;
   }
 
-  tbody.innerHTML = passagens
-    .map(
-      (p) => `
-                <tr>
-                    <td>${p.bilhete}</td>
-                    <td>${p.nome}</td>
-                    <td>${p.cpf || "-"}</td>
-                    <td>${p.embarque}</td>
-                    <td>${p.destino}</td>
-                    <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
-                    <td>R$ ${p.valor.toFixed(2)}</td>
-                    <td><span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span></td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn btn-small" onclick="gerarComprovantePassagem('${p.id}')">📄 Comprovante</button>
-                            <button class="btn btn-small btn-warning" onclick="cancelarPassagem('${p.id}')">Cancelar</button>
-                            <button class="btn btn-small btn-danger" onclick="excluirPassagem('${p.id}')">Excluir</button>
-                        </div>
-                    </td>
-                </tr>
-            `,
-    )
-    .join("");
+  tbody.innerHTML = passagens.map(p => `
+    <tr>
+      <td>${p.bilhete}</td>
+      <td>${p.nome}</td>
+      <td>${p.cpf}</td>
+      <td>${p.email}</td>
+      <td>${p.embarque}</td>
+      <td>${p.destino}</td>
+      <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
+      <td>R$ ${p.valor.toFixed(2)}</td>
+      <td>
+        <span class="status-badge status-${p.status.toLowerCase()}">
+          ${p.status}
+        </span>
+      </td>
+      <td>
+        <div class="action-buttons">
+          <button class="btn btn-small"
+            onclick="gerarComprovantePassagem('${p.id}')">
+            📄
+          </button>
+          <button class="btn btn-small btn-warning"
+            onclick="cancelarPassagem('${p.id}')">
+            Cancelar
+          </button>
+          <button class="btn btn-small btn-danger"
+            onclick="excluirPassagem('${p.id}')">
+            Excluir
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
 }
+
 
 window.cancelarPassagem = async function (id) {
   if (confirm("Deseja realmente cancelar esta passagem?")) {
@@ -318,66 +352,45 @@ function renderizarEncomendas() {
   const tbody = document.getElementById("encomendasBody");
 
   if (!encomendas || encomendas.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="11" style="text-align:center; color: var(--text-light);">Nenhuma encomenda cadastrada</td></tr>';
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="12"
+          style="text-align:center; color: var(--text-light);">
+          Nenhuma encomenda cadastrada
+        </td>
+      </tr>`;
     return;
   }
 
-  tbody.innerHTML = encomendas
-    .map((e) => {
-      const status = e.statusPagamento || "PENDENTE";
-
-      return `
-        <tr>
-            <td>${e.ordem}</td>
-            <td>${e.destinatario}</td>
-            <td>${e.remetente || "-"}</td>
-            <td>${e.bilhete || "-"}</td>
-            <td>${e.local}</td>
-            <td>${e.especie}</td>
-            <td>${e.volumes}</td>
-            <td>R$ ${e.valor.toFixed(2)}</td>
-            <td>${new Date(e.dataViagem).toLocaleDateString("pt-BR")}</td>
-
-            <td>
-              <span class="status-pagamento ${
-                status === "PAGO" ? "pago" : "pendente"
-              }">
-                ${status}
-              </span>
-            </td>
-
-            <td>
-                <div class="action-buttons">
-
-                  ${
-                    status !== "PAGO"
-                      ? `
-                      <button class="btn btn-small btn-success"
-                        onclick="marcarComoPago('${e.id}')">
-                        💰 Marcar como Pago
-                      </button>
-                      `
-                      : ""
-                  }
-
-                  <button class="btn btn-small"
-                    onclick="gerarComprovanteEncomenda('${e.id}')">
-                    📄 Comprovante
-                  </button>
-
-                  <button class="btn btn-small btn-secondary"
-                    onclick="excluirEncomenda('${e.id}')">
-                    Excluir
-                  </button>
-
-                </div>
-            </td>
-        </tr>
-      `;
-    })
-    .join("");
+  tbody.innerHTML = encomendas.map(e => `
+    <tr>
+      <td>${e.ordem}</td>
+      <td>${e.destinatario}</td>
+      <td>${e.email}</td>
+      <td>${e.remetente}</td>
+      <td>${e.bilhete}</td>
+      <td>${e.local}</td>
+      <td>${e.especie}</td>
+      <td>${e.volumes}</td>
+      <td>R$ ${e.valor.toFixed(2)}</td>
+      <td>${new Date(e.dataViagem).toLocaleDateString("pt-BR")}</td>
+      <td>
+        <span class="status-pagamento ${
+          e.statusPagamento === "PAGO" ? "pago" : "pendente"
+        }">
+          ${e.statusPagamento}
+        </span>
+      </td>
+      <td>
+        <button class="btn btn-small"
+          onclick="gerarComprovanteEncomenda('${e.id}')">
+          📄
+        </button>
+      </td>
+    </tr>
+  `).join("");
 }
+
 
 window.excluirEncomenda = async function (id) {
   if (confirm("Deseja realmente excluir esta encomenda?")) {
@@ -660,43 +673,34 @@ window.gerarComprovantePassagem = function (id) {
   y += 8;
 
   doc.setFont(undefined, "normal");
-  doc.text(`Nome: ${passagem.nome}`, 15, y);
-  y += 7;
+  doc.text(`Nome: ${passagem.nome}`, 15, y); y += 7;
+  doc.text(`CPF: ${passagem.cpf}`, 15, y); y += 7;
 
-  if (passagem.cpf) {
-    doc.text(`CPF: ${passagem.cpf}`, 15, y);
-    y += 7;
-  }
+  doc.text(
+    `Nascimento: ${new Date(passagem.dataNascimento).toLocaleDateString("pt-BR")}`,
+    15,
+    y
+  ); y += 7;
 
-  if (passagem.telefone) {
-    doc.text(`Telefone: ${passagem.telefone}`, 15, y);
-    y += 7;
-  }
+  doc.text(`Telefone: ${passagem.telefone}`, 15, y); y += 7;
+  doc.text(`Email: ${passagem.email}`, 15, y); y += 10;
 
-  y += 5;
   doc.setFont(undefined, "bold");
   doc.text("DETALHES DA VIAGEM", 15, y);
   y += 8;
 
   doc.setFont(undefined, "normal");
-  doc.text(`Bilhete: ${passagem.bilhete}`, 15, y);
-  y += 7;
-
-  doc.text(`Embarque: ${passagem.embarque}`, 15, y);
-  y += 7;
-
-  doc.text(`Destino: ${passagem.destino}`, 15, y);
-  y += 7;
+  doc.text(`Bilhete: ${passagem.bilhete}`, 15, y); y += 7;
+  doc.text(`Embarque: ${passagem.embarque}`, 15, y); y += 7;
+  doc.text(`Destino: ${passagem.destino}`, 15, y); y += 7;
 
   doc.text(
-    `Data: ${new Date(passagem.dataViagem).toLocaleDateString("pt-BR")}`,
+    `Data da viagem: ${new Date(passagem.dataViagem).toLocaleDateString("pt-BR")}`,
     15,
-    y,
-  );
-  y += 7;
+    y
+  ); y += 7;
 
-  doc.text(`Status: ${passagem.status}`, 15, y);
-  y += 12;
+  doc.text(`Status: ${passagem.status}`, 15, y); y += 12;
 
   // ===== VALOR =====
   doc.setFillColor(232, 244, 248);
@@ -710,51 +714,21 @@ window.gerarComprovantePassagem = function (id) {
   doc.setTextColor(80);
   doc.text(`Responsável: ${usuarioLogadoEmail}`, 15, 275);
 
-  // ===== RODAPÉ =====
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, 285, {
     align: "center",
   });
 
-  // ===== PREVIEW =====
   const pdfUrl = doc.output("bloburl");
-
   document.getElementById("pdfPreview").src = pdfUrl;
   document.getElementById("pdfModal").style.display = "flex";
 
-  // ===== BOTÃO BAIXAR =====
   document.getElementById("btnBaixarPdf").onclick = function () {
     doc.save(`Comprovante_Passagem_${passagem.bilhete}.pdf`);
   };
-
-  // ===== BOTÃO WHATSAPP =====
-  document.getElementById("btnWhatsapp").onclick = function () {
-    const mensagem = `🛥️ *AGÊNCIA LIRA*
-━━━━━━━━━━━━━━━━━━
-
-📄 *COMPROVANTE DE PASSAGEM*
-
-👤 *Passageiro:* ${passagem.nome}
-🆔 *CPF:* ${passagem.cpf || "Não informado"}
-🎫 *Bilhete:* ${passagem.bilhete}
-
-📍 *Rota:*
-${passagem.embarque} ➝ ${passagem.destino}
-
-📅 *Data da Viagem:*
-${new Date(passagem.dataViagem).toLocaleDateString("pt-BR")}
-
-💰 *Valor Pago:* R$ ${passagem.valor.toFixed(2)}
-
-━━━━━━━━━━━━━━━━━━
-📞 Em caso de dúvidas, entre em contato.
-Obrigado por escolher a Agência Lira!
-Boa viagem! 🚢✨`;
-
-    enviarWhatsapp(passagem.telefone, mensagem);
-  };
 };
+
 
 window.gerarComprovanteEncomenda = function (id) {
   const encomenda = encomendas.find((e) => e.id === id);
@@ -765,7 +739,7 @@ window.gerarComprovanteEncomenda = function (id) {
   }
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF("p", "mm", "a4"); // 👈 padrão igual passagem
+  const doc = new jsPDF("p", "mm", "a4");
 
   // ===== CABEÇALHO =====
   doc.setFillColor(10, 37, 64);
@@ -791,46 +765,27 @@ window.gerarComprovanteEncomenda = function (id) {
   y += 8;
 
   doc.setFont(undefined, "normal");
-  doc.text(`Ordem: ${encomenda.ordem}`, 15, y);
-  y += 7;
-
-  doc.text(`Destinatário: ${encomenda.destinatario}`, 15, y);
-  y += 7;
-
-  if (encomenda.remetente) {
-    doc.text(`Remetente: ${encomenda.remetente}`, 15, y);
-    y += 7;
-  }
-
-  if (encomenda.telefone) {
-    doc.text(`Telefone: ${encomenda.telefone}`, 15, y);
-    y += 7;
-  }
-
-  y += 3;
+  doc.text(`Ordem: ${encomenda.ordem}`, 15, y); y += 7;
+  doc.text(`Destinatário: ${encomenda.destinatario}`, 15, y); y += 7;
+  doc.text(`Email: ${encomenda.email}`, 15, y); y += 7;
+  doc.text(`Remetente: ${encomenda.remetente}`, 15, y); y += 7;
+  doc.text(`Telefone: ${encomenda.telefone}`, 15, y); y += 10;
 
   doc.setFont(undefined, "bold");
   doc.text("DETALHES DO TRANSPORTE", 15, y);
   y += 8;
 
   doc.setFont(undefined, "normal");
-  doc.text(`Local: ${encomenda.local}`, 15, y);
-  y += 7;
-
-  doc.text(`Espécie: ${encomenda.especie}`, 15, y);
-  y += 7;
-
-  doc.text(`Volumes: ${encomenda.volumes}`, 15, y);
-  y += 7;
+  doc.text(`Local: ${encomenda.local}`, 15, y); y += 7;
+  doc.text(`Espécie: ${encomenda.especie}`, 15, y); y += 7;
+  doc.text(`Volumes: ${encomenda.volumes}`, 15, y); y += 7;
 
   doc.text(
     `Data: ${new Date(encomenda.dataViagem).toLocaleDateString("pt-BR")}`,
     15,
-    y,
-  );
-  y += 12;
+    y
+  ); y += 12;
 
-  // ===== BLOCO VALOR =====
   doc.setFillColor(232, 244, 248);
   doc.rect(10, y, 190, 25, "F");
 
@@ -838,81 +793,37 @@ window.gerarComprovanteEncomenda = function (id) {
   doc.setFont(undefined, "bold");
   doc.text(`Valor: R$ ${encomenda.valor.toFixed(2)}`, 15, y + 10);
 
-  // STATUS
   doc.setFontSize(12);
 
   if (encomenda.statusPagamento === "PAGO") {
     doc.setTextColor(39, 174, 96);
-    doc.text("Pagamento: PAGO ", 15, y + 20);
+    doc.text("Pagamento: PAGO", 15, y + 20);
   } else {
     doc.setTextColor(231, 76, 60);
-    doc.text("Pagamento: PENDENTE ", 15, y + 20);
+    doc.text("Pagamento: PENDENTE", 15, y + 20);
   }
 
   doc.setTextColor(0, 0, 0);
-
   doc.setFontSize(10);
   doc.setTextColor(80);
   doc.text(`Responsável: ${usuarioLogadoEmail}`, 15, 275);
 
-  // ===== RODAPÉ =====
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, 285, {
     align: "center",
   });
 
-  // ===== PREVIEW =====
   const pdfUrl = doc.output("bloburl");
-
   document.getElementById("pdfPreview").src = pdfUrl;
   document.getElementById("pdfModal").style.display = "flex";
 
   document.getElementById("btnBaixarPdf").onclick = function () {
     doc.save(`Comprovante_Encomenda_${encomenda.ordem}.pdf`);
   };
-
-  // ===== WHATSAPP =====
-  document.getElementById("btnWhatsapp").onclick = async function () {
-    if (!encomenda.telefone) {
-      alert("❌ Nenhum telefone cadastrado.");
-      return;
-    }
-
-    try {
-      // 🔹 Gerar o PDF como blob
-      const pdfBlob = doc.output("blob");
-
-      // 🔹 Nome do arquivo no Storage
-      const nomeArquivo = `comprovantes/encomenda_${encomenda.id}.pdf`;
-
-      // 🔹 Criar referência
-      const storageRef = ref(storage, nomeArquivo);
-
-      // 🔹 Enviar para o Firebase Storage
-      await uploadBytes(storageRef, pdfBlob);
-
-      // 🔹 Pegar link público
-      const url = await getDownloadURL(storageRef);
-
-      // 🔹 Mensagem com link
-      const mensagem = `
-🛥️ *AGÊNCIA LIRA*
-
-📦 Seu comprovante em PDF está disponível no link abaixo:
-
-${url}
-
-Obrigado por escolher a Agência Lira!
-`;
-
-      enviarWhatsapp(encomenda.telefone, mensagem);
-    } catch (error) {
-      console.error("Erro ao enviar PDF:", error);
-      alert("❌ Erro ao enviar PDF.");
-    }
-  };
 };
+
+
 
 window.gerarPrestacaoContas = function () {
   if (!window.dadosRelatorio) {
@@ -924,14 +835,17 @@ window.gerarPrestacaoContas = function () {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF("p", "mm", "a4");
 
-  // Cabeçalho
+  // ================================
+  // CABEÇALHO
+  // ================================
+
   doc.setFillColor(10, 37, 64);
   doc.rect(0, 0, 210, 45, "F");
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(24);
   doc.setFont(undefined, "bold");
-  doc.text(" AGÊNCIA LIRA", 105, 15, { align: "center" });
+  doc.text("AGÊNCIA LIRA", 105, 15, { align: "center" });
 
   doc.setFontSize(14);
   doc.setFont(undefined, "normal");
@@ -946,7 +860,10 @@ window.gerarPrestacaoContas = function () {
     { align: "center" },
   );
 
-  // Resumo Financeiro
+  // ================================
+  // RESUMO FINANCEIRO
+  // ================================
+
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(13);
   doc.setFont(undefined, "bold");
@@ -984,14 +901,17 @@ window.gerarPrestacaoContas = function () {
 
   let finalY = doc.lastAutoTable.finalY + 10;
 
-  // Comissões
+  // ================================
+  // COMISSÕES
+  // ================================
+
   doc.setFontSize(13);
   doc.setFont(undefined, "bold");
   doc.text("COMISSÕES DA AGÊNCIA", 15, finalY);
 
   doc.autoTable({
     startY: finalY + 5,
-    head: [["Tipo", "Base de Cálculo", "Taxa", "Comissão (R$)"]],
+    head: [["Tipo", "Base", "Taxa", "Comissão (R$)"]],
     body: [
       [
         "Passagens",
@@ -1010,86 +930,77 @@ window.gerarPrestacaoContas = function () {
     theme: "grid",
     headStyles: { fillColor: [26, 77, 126], fontSize: 11 },
     styles: { fontSize: 10 },
-    columnStyles: {
-      3: { halign: "right" },
-    },
   });
 
   finalY = doc.lastAutoTable.finalY + 10;
 
-  // Resumo Final
+  // ================================
+  // VALOR FINAL
+  // ================================
+
   doc.setFillColor(232, 244, 248);
   doc.rect(10, finalY, 190, 30, "F");
 
   doc.setFontSize(12);
   doc.setFont(undefined, "bold");
   doc.text("VALOR A REPASSAR PARA EMBARCAÇÃO:", 15, finalY + 10);
+
   doc.setFontSize(18);
   doc.setTextColor(39, 174, 96);
   doc.text(`R$ ${dados.lucro.toFixed(2)}`, 15, finalY + 22);
 
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
-  doc.setFont(undefined, "normal");
-  doc.text(`(Receita Total - Comissões da Agência)`, 15, finalY + 28);
 
-  finalY += 45;
+  // ================================
+  // RODAPÉ
+  // ================================
 
-  // Estatísticas Adicionais
-  if (finalY < 250) {
-    doc.setFontSize(13);
-    doc.setFont(undefined, "bold");
-    doc.text("ESTATÍSTICAS DA VIAGEM", 15, finalY);
-
-    doc.autoTable({
-      startY: finalY + 5,
-      head: [["Indicador", "Valor"]],
-      body: [
-        ["Total de Passageiros", dados.passagens.length],
-        ["Total de Encomendas", dados.encomendas.length],
-        ["Total de Volumes Transportados", dados.totalVolumes],
-        [
-          "Ticket Médio Passagem",
-          dados.passagens.length > 0
-            ? `R$ ${(dados.receitaPass / dados.passagens.length).toFixed(2)}`
-            : "R$ 0,00",
-        ],
-        [
-          "Ticket Médio Encomenda",
-          dados.encomendas.length > 0
-            ? `R$ ${(dados.receitaEnc / dados.encomendas.length).toFixed(2)}`
-            : "R$ 0,00",
-        ],
-      ],
-      theme: "grid",
-      headStyles: { fillColor: [26, 77, 126], fontSize: 11 },
-      styles: { fontSize: 10 },
-    });
-  }
-
-  // Rodapé
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(9);
-    doc.setTextColor(127, 140, 141);
+    doc.setTextColor(120);
     doc.text(`Página ${i} de ${pageCount}`, 105, 287, { align: "center" });
     doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, 292, {
       align: "center",
     });
   }
 
-  // 👇 GERAR PREVIEW IGUAL PASSAGEM E ENCOMENDA
-  const pdfUrl = doc.output("bloburl");
+  // ================================
+  // PREVIEW
+  // ================================
 
+  const pdfUrl = doc.output("bloburl");
   document.getElementById("pdfPreview").src = pdfUrl;
   document.getElementById("pdfModal").style.display = "flex";
 
   document.getElementById("btnBaixarPdf").onclick = function () {
-    doc.save(
-      `Relatorio_Prestacao_Contas_${dados.dataInicial}_a_${dados.dataFinal}.pdf`,
-    );
+    doc.save(`Relatorio_${dados.dataInicial}_a_${dados.dataFinal}.pdf`);
   };
+
+  // ================================
+  // 🔥 SALVAR NO STORAGE ORGANIZADO
+  // ================================
+
+  (async () => {
+    try {
+      const pdfBlob = doc.output("blob");
+
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+
+      const nomeArquivo = `comprovantes/${usuarioLogadoEmail}/${ano}/${mes}/relatorios/relatorio_${dados.dataInicial}_a_${dados.dataFinal}.pdf`;
+
+      const storageRef = ref(storage, nomeArquivo);
+
+      await uploadBytes(storageRef, pdfBlob);
+
+      console.log("✅ Relatório salvo no Storage organizado!");
+    } catch (error) {
+      console.error("❌ Erro ao salvar relatório:", error);
+    }
+  })();
 };
 
 window.gerarGraficos = function (dados) {
@@ -1164,7 +1075,6 @@ window.limparFormEncomenda = function () {
 
 // Inicialização
 onAuthStateChanged(auth, (user) => {
-
   if (!user) {
     window.location.href = "index.html";
     return;
@@ -1179,7 +1089,6 @@ onAuthStateChanged(auth, (user) => {
   const hoje = new Date().toISOString().split("T")[0];
   document.getElementById("dataViagem").value = hoje;
   document.getElementById("dataViagemEncomenda").value = hoje;
-
 });
 
 window.fecharModalPdf = function () {
@@ -1263,7 +1172,17 @@ document
   .addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    // 🔹 Converter valor formatado
+    const destinatario = document.getElementById("destinatario").value.trim();
+    const remetente = document.getElementById("remetente").value.trim();
+    const bilhete = document.getElementById("bilheteEncomenda").value.trim();
+    const local = document.getElementById("localViagem").value;
+    const especie = document.getElementById("especie").value.trim();
+    const telefone = document.getElementById("telefoneEncomenda").value.trim();
+    const email = document.getElementById("emailEncomenda").value.trim();
+    const volumes = document.getElementById("quantVolumes").value;
+    const dataViagem = document.getElementById("dataViagemEncomenda").value;
+    const statusPagamento = document.getElementById("statusPagamento").value;
+
     let valor = document
       .getElementById("valorEncomenda")
       .value.replace("R$ ", "")
@@ -1272,23 +1191,41 @@ document
 
     valor = parseFloat(valor);
 
-    if (isNaN(valor)) {
-      alert("❌ Informe um valor válido.");
+    if (
+      !destinatario ||
+      !remetente ||
+      !bilhete ||
+      !local ||
+      !especie ||
+      !telefone ||
+      !email ||
+      !volumes ||
+      !valor ||
+      !dataViagem ||
+      !statusPagamento
+    ) {
+      alert("❌ Todos os campos são obrigatórios!");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      alert("❌ Email inválido!");
       return;
     }
 
     const encomenda = {
       ordem: encomendas.length + 1,
-      destinatario: document.getElementById("destinatario").value,
-      remetente: document.getElementById("remetente").value,
-      bilhete: document.getElementById("bilheteEncomenda").value,
-      local: document.getElementById("localViagem").value,
-      telefone: document.getElementById("telefoneEncomenda").value,
-      especie: document.getElementById("especie").value,
-      volumes: parseInt(document.getElementById("quantVolumes").value),
-      valor: valor,
-      statusPagamento: document.getElementById("statusPagamento").value, // 👈 NOVO
-      dataViagem: document.getElementById("dataViagemEncomenda").value,
+      destinatario,
+      remetente,
+      bilhete,
+      local,
+      telefone,
+      email,
+      especie,
+      volumes: parseInt(volumes),
+      valor,
+      statusPagamento,
+      dataViagem,
       dataCadastro: new Date().toISOString(),
     };
 
