@@ -68,7 +68,6 @@
 
             </div>
 
-
             <!-- ⚪ MÉTRICAS SECUNDÁRIAS -->
             <div class="stats-grid secondary-metrics">
 
@@ -148,6 +147,7 @@
                             <label>Embarque *</label>
                             <select id="embarque" required>
                                 <option value="">Selecione...</option>
+                                <option value="MANAUS">ORIXIMINÁ</option>
                                 <option value="MANAUS">MANAUS</option>
                                 <option value="PARINTINS">PARINTINS</option>
                                 <option value="JURUTI">JURUTI</option>
@@ -186,9 +186,10 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Quantidade de Refeições *</label>
-                            <input type="number" id="quantRefeicoes" min="0" required>
+                            <label>Valor da Refeição (R$)</label>
+                            <input type="text" id="valorRefeicao" placeholder="R$ 0,00">
                         </div>
+
                         <div style="margin-top:10px;">
                             <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                                 <input type="checkbox" id="pcdPassageiro">
@@ -242,7 +243,7 @@
                                 <th>Destino</th>
                                 <th>Data</th>
                                 <th>Valor</th>
-                                <th>Refeições</th>
+                                <th>Valor Refeição</th>
                                 <th>PCD</th>
                                 <th>Status</th>
                                 <th>Ações</th>
@@ -251,7 +252,7 @@
 
                         <tbody id="passagensBody">
                             <tr>
-                                <td colspan="10" style="text-align:center; color: var(--text-light);">
+                                <td colspan="13" style="text-align:center; color: var(--text-light);">
                                     Nenhuma passagem cadastrada
                                 </td>
                             </tr>

@@ -180,21 +180,42 @@ document
     const destinoVal = destino.value;
     const bilheteVal = bilhete.value.trim();
     const dataVal = dataViagem.value;
-    const refeicoes =
-      parseInt(document.getElementById("quantRefeicoes")?.value) || 0;
+
     const pcd = document.getElementById("pcdPassageiro").checked;
 
+    // ================================
+    // 🔹 VALOR DA PASSAGEM
+    // ================================
     let valor = valorPassagem.value
-      .replace("R$ ", "")
+      .replace("R$", "")
       .replace(/\./g, "")
-      .replace(",", ".");
+      .replace(",", ".")
+      .trim();
 
     valor = parseFloat(valor);
 
-    // 🔥 NOVA VALIDAÇÃO IMPORTANTE
+    // ================================
+    // 🔹 VALOR DA REFEIÇÃO
+    // ================================
+    let valorRefeicaoInput = document.getElementById("valorRefeicao").value;
+
+    let valorRefeicao = 0;
+
+    if (valorRefeicaoInput) {
+      valorRefeicao =
+        parseFloat(
+          valorRefeicaoInput
+            .replace("R$", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+            .trim(),
+        ) || 0;
+    }
+
+    // 🔥 VALIDAÇÃO EMBARQUE
     if (embarqueVal === destinoVal) {
       alert("⚠️ Embarque e Destino não podem ser iguais!");
-      return; // 🚫 PARA TOTALMENTE A EXECUÇÃO
+      return;
     }
 
     // 🔴 VALIDAÇÃO COMPLETA
@@ -212,7 +233,7 @@ document
       valor <= 0
     ) {
       alert(
-        "❌ TODOS os campos são obrigatórios e valor deve ser maior que zero!",
+        "❌ TODOS os campos obrigatórios devem ser preenchidos e valor maior que zero!",
       );
       return;
     }
@@ -237,11 +258,11 @@ document
       email: emailVal,
       embarque: embarqueVal,
       destino: destinoVal,
-      valor,
+      valor: Number(valor.toFixed(2)),
+      valorRefeicao: Number(valorRefeicao.toFixed(2)),
       dataViagem: dataVal,
       status: "ATIVO",
       dataCadastro: new Date().toISOString(),
-      refeicoes: Number(refeicoes),
       pcd: pcd,
     };
 
@@ -265,7 +286,7 @@ function renderizarPassagens() {
   if (!passagens || passagens.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="10"
+        <td colspan="13"
           style="text-align:center; color: var(--text-light);">
           Nenhuma passagem cadastrada
         </td>
@@ -286,7 +307,10 @@ function renderizarPassagens() {
       <td>${p.destino}</td>
       <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
       <td>R$ ${p.valor.toFixed(2)}</td>
-      <td>${p.refeicoes ?? 0}</td>
+      <td>
+  R$ ${p.valorRefeicao !== undefined ? p.valorRefeicao.toFixed(2) : "0.00"}
+</td>
+
 
       <!-- 🔥 NOVA COLUNA PCD -->
       <td>
@@ -377,24 +401,49 @@ window.filtrarPassagens = function () {
   tbody.innerHTML = passagensFiltradas
     .map(
       (p) => `
-                <tr>
-                    <td>${p.bilhete}</td>
-                    <td>${p.nome}</td>
-                    <td>${p.cpf || "-"}</td>
-                    <td>${p.embarque}</td>
-                    <td>${p.destino}</td>
-                    <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
-                    <td>R$ ${p.valor.toFixed(2)}</td>
-                    <td><span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span></td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn btn-small" onclick="gerarComprovantePassagem(${p.id})">📄 Comprovante</button>
-                            <button class="btn btn-small btn-danger" onclick="cancelarPassagem(${p.id})">Cancelar</button>
-                            <button class="btn btn-small btn-secondary" onclick="excluirPassagem(${p.id})">Excluir</button>
-                        </div>
-                    </td>
-                </tr>
-            `,
+      <tr>
+        <td>${p.ordem ?? "-"}</td>
+        <td>${p.bilhete}</td>
+        <td>${p.nome}</td>
+        <td>${p.cpf || "-"}</td>
+        <td>${p.email || "-"}</td>
+        <td>${p.embarque}</td>
+        <td>${p.destino}</td>
+        <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
+        <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
+        <td>R$ ${Number(p.valorRefeicao || 0).toFixed(2)}</td>
+        <td>
+          ${
+            p.pcd
+              ? '<span class="badge-pcd">SIM</span>'
+              : '<span style="color:#999;">NÃO</span>'
+          }
+        </td>
+        <td>
+          <span class="status-badge status-${p.status.toLowerCase()}">
+            ${p.status}
+          </span>
+        </td>
+        <td>
+          <div class="action-buttons">
+            <button class="btn btn-small"
+              onclick="gerarComprovantePassagem('${p.id}')">
+              📄 Comprovante
+            </button>
+
+            <button class="btn btn-small btn-danger"
+              onclick="cancelarPassagem('${p.id}')">
+              ❌ Cancelar
+            </button>
+
+            <button class="btn btn-small btn-secondary"
+              onclick="excluirPassagem('${p.id}')">
+              🗑️ Excluir
+            </button>
+          </div>
+        </td>
+      </tr>
+    `,
     )
     .join("");
 };
@@ -791,7 +840,11 @@ window.gerarComprovantePassagem = function (id) {
     new Date(passagem.dataViagem).toLocaleDateString("pt-BR"),
   );
   linha("Valor:", `R$ ${passagem.valor.toFixed(2)}`);
-  linha("Refeições:", passagem.refeicoes ?? 0);
+  linha(
+  "Valor da Refeição:",
+  `R$ ${Number(passagem.valorRefeicao || 0).toFixed(2)}`
+);
+
   linha("PCD:", passagem.pcd ? "SIM " : "NÃO");
 
   // Status abaixo de Refeições com cor
@@ -1699,12 +1752,12 @@ function formatarMoeda(input) {
   }
 
   valor = (parseInt(valor) / 100).toFixed(2);
-
   valor = valor.replace(".", ",");
   valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
   input.value = "R$ " + valor;
 }
+
 
 document.getElementById("valorPassagem").addEventListener("input", function () {
   formatarMoeda(this);
@@ -1784,3 +1837,21 @@ document.getElementById("embarque").addEventListener("change", function () {
 document.getElementById("destino").addEventListener("change", function () {
   atualizarOpcoesSelect(this, document.getElementById("embarque"));
 });
+
+window.addEventListener("DOMContentLoaded", function () {
+  const campoPassagem = document.getElementById("valorPassagem");
+  const campoRefeicao = document.getElementById("valorRefeicao");
+
+  if (campoPassagem) {
+    campoPassagem.addEventListener("input", function () {
+      formatarMoeda(this);
+    });
+  }
+
+  if (campoRefeicao) {
+    campoRefeicao.addEventListener("input", function () {
+      formatarMoeda(this);
+    });
+  }
+});
+
