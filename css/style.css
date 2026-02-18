@@ -1706,3 +1706,13 @@ input[type="email"]:valid {
   border: 1px solid #e74c3c;
 }
 
+
+
+.badge-pcd {
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 12px;
+}

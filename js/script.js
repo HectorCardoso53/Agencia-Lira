@@ -25,6 +25,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 const functions = getFunctions();
+const enviarEmailFunction = httpsCallable(functions, "enviarComprovanteEmail");
 
 let passagens = [];
 let encomendas = [];
@@ -172,6 +173,9 @@ document
     const destinoVal = destino.value;
     const bilheteVal = bilhete.value.trim();
     const dataVal = dataViagem.value;
+    const refeicoes =
+      parseInt(document.getElementById("quantRefeicoes")?.value) || 0;
+    const pcd = document.getElementById("pcdPassageiro").checked;
 
     let valor = valorPassagem.value
       .replace("R$ ", "")
@@ -224,6 +228,8 @@ document
       dataViagem: dataVal,
       status: "ATIVO",
       dataCadastro: new Date().toISOString(),
+      refeicoes: Number(refeicoes),
+      pcd:pcd
     };
 
     await addDoc(collection(db, "passagens"), passagem);
@@ -255,10 +261,10 @@ function renderizarPassagens() {
   }
 
   tbody.innerHTML = passagens
-    .map(
-      (p) => `
+  .map(
+    (p) => `
     <tr>
-      <td>${p.ordem}</td>
+      <td>${p.ordem ?? "-"}</td>
       <td>${p.bilhete}</td>
       <td>${p.nome}</td>
       <td>${p.cpf}</td>
@@ -267,11 +273,23 @@ function renderizarPassagens() {
       <td>${p.destino}</td>
       <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
       <td>R$ ${p.valor.toFixed(2)}</td>
+      <td>${p.refeicoes ?? 0}</td>
+
+      <!-- 🔥 NOVA COLUNA PCD -->
+      <td>
+        ${
+          p.pcd
+            ? '<span class="badge-pcd">SIM</span>'
+            : '<span style="color:#999;">NÃO</span>'
+        }
+      </td>
+
       <td>
         <span class="status-badge status-${p.status.toLowerCase()}">
           ${p.status}
         </span>
       </td>
+
       <td>
         <div class="action-buttons">
           <button class="btn btn-small"
@@ -291,9 +309,10 @@ function renderizarPassagens() {
         </div>
       </td>
     </tr>
-  `,
-    )
-    .join("");
+  `
+  )
+  .join("");
+
 }
 
 window.cancelarPassagem = async function (id) {
@@ -384,10 +403,8 @@ function renderizarEncomendas() {
 
   tbody.innerHTML = encomendas
     .map((e) => {
-
       const status = e.statusPagamento || "PENDENTE";
-      const classeStatus =
-        status === "PAGO" ? "pago" : "pendente";
+      const classeStatus = status === "PAGO" ? "pago" : "pendente";
 
       return `
       <tr>
@@ -439,7 +456,6 @@ function renderizarEncomendas() {
     })
     .join("");
 }
-
 
 window.excluirEncomenda = async function (id) {
   if (confirm("Deseja realmente excluir esta encomenda?")) {
@@ -604,6 +620,7 @@ window.gerarRelatorio = function () {
     return;
   }
 
+  // 🔹 PRIMEIRO FILTRA
   const passagensFiltradas = passagens.filter((p) => {
     return (
       p.status === "ATIVO" &&
@@ -616,19 +633,25 @@ window.gerarRelatorio = function () {
     return e.dataViagem >= dataInicial && e.dataViagem <= dataFinal;
   });
 
+  // 🔹 DEPOIS CALCULA
   const receitaPass = passagensFiltradas.reduce((sum, p) => sum + p.valor, 0);
   const receitaEnc = encomendasFiltradas.reduce((sum, e) => sum + e.valor, 0);
+
+  const totalRefeicoes = passagensFiltradas.reduce(
+    (sum, p) => sum + (p.refeicoes || 0),
+    0,
+  );
+
+  const totalVolumes = encomendasFiltradas.reduce(
+    (sum, e) => sum + e.volumes,
+    0,
+  );
 
   const comissaoPass = receitaPass * 0.1;
   const comissaoEnc = receitaEnc * 0.3;
   const comissaoTotal = comissaoPass + comissaoEnc;
 
   const lucro = receitaPass + receitaEnc - comissaoTotal;
-
-  const totalVolumes = encomendasFiltradas.reduce(
-    (sum, e) => sum + e.volumes,
-    0,
-  );
 
   // 🔹 Atualiza tela
   document.getElementById("receitaPassagens").textContent =
@@ -658,9 +681,9 @@ window.gerarRelatorio = function () {
     comissaoTotal,
     lucro,
     totalVolumes,
+    totalRefeicoes,
   };
 
-  // 🔥 JÁ GERA O PDF AUTOMATICAMENTE
   gerarPrestacaoContas();
 };
 
@@ -672,7 +695,8 @@ window.enviarWhatsapp = function (numeroOriginal, mensagemTexto) {
 
   let numero = numeroOriginal.replace(/\D/g, "");
 
-  if (numero.length === 11) {
+  // adiciona DDI Brasil se não tiver
+  if (numero.length === 11 && !numero.startsWith("55")) {
     numero = "55" + numero;
   }
 
@@ -680,17 +704,15 @@ window.enviarWhatsapp = function (numeroOriginal, mensagemTexto) {
 
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  if (isMobile) {
-    window.location.href = `https://wa.me/${numero}?text=${mensagem}`;
-  } else {
-    // desktop → tenta app
-    window.location.href = `whatsapp://send?phone=${numero}&text=${mensagem}`;
+  let url;
 
-    // fallback web
-    setTimeout(() => {
-      window.location.href = `https://web.whatsapp.com/send?phone=${numero}&text=${mensagem}`;
-    }, 1200);
+  if (isMobile) {
+    url = `https://wa.me/${numero}?text=${mensagem}`;
+  } else {
+    url = `https://web.whatsapp.com/send?phone=${numero}&text=${mensagem}`;
   }
+
+  window.open(url, "_blank");
 };
 
 window.gerarComprovantePassagem = function (id) {
@@ -733,6 +755,7 @@ window.gerarComprovantePassagem = function (id) {
   };
 
   linha("Protocolo:", protocolo);
+  linha("Ordem:", passagem.ordem ?? "-");
   linha("Bilhete:", passagem.bilhete); // 🔥 agora organizado
   linha("Nome:", passagem.nome);
   linha("CPF:", passagem.cpf);
@@ -742,13 +765,14 @@ window.gerarComprovantePassagem = function (id) {
   linha("Destino:", passagem.destino);
   linha(
     "Data da Viagem:",
-    new Date(passagem.dataViagem).toLocaleDateString("pt-BR")
+    new Date(passagem.dataViagem).toLocaleDateString("pt-BR"),
   );
   linha("Valor:", `R$ ${passagem.valor.toFixed(2)}`);
+  linha("Refeições:", passagem.refeicoes ?? 0);
+  linha("PCD:", passagem.pcd ? "SIM " : "NÃO");
 
-  // 🔥 STATUS ORGANIZADO
-  y += 5;
 
+  // Status abaixo de Refeições com cor
   doc.setFont(undefined, "bold");
   doc.text("Status:", 20, y);
 
@@ -761,7 +785,9 @@ window.gerarComprovantePassagem = function (id) {
   }
 
   doc.text(passagem.status, 85, y);
-  doc.setTextColor(0, 0, 0);
+
+  doc.setTextColor(0, 0, 0); // volta cor normal
+  y += 8;
 
   // 🔹 RODAPÉ
   doc.setFontSize(9);
@@ -780,6 +806,7 @@ window.gerarComprovantePassagem = function (id) {
   };
 
   // 📲 WHATSAPP
+  // 📲 WHATSAPP + EMAIL
   document.getElementById("btnWhatsapp").onclick = async function () {
     const confirmar = confirm("Deseja realmente enviar o comprovante?");
     if (!confirmar) return;
@@ -806,6 +833,16 @@ window.gerarComprovantePassagem = function (id) {
       await uploadBytes(storageRef, pdfBlob);
       const downloadURL = await getDownloadURL(storageRef);
 
+      // 🔥 ENVIA EMAIL
+      if (passagem.email) {
+        await enviarEmailFunction({
+          email: passagem.email,
+          nome: passagem.nome,
+          link: downloadURL,
+        });
+      }
+
+      // 🔥 ENVIA WHATSAPP
       const mensagem = `
 🛥️ *AGÊNCIA LIRA*
 
@@ -817,15 +854,13 @@ ${downloadURL}
 
       esconderLoading();
       enviarWhatsapp(passagem.telefone, mensagem);
-
     } catch (error) {
       esconderLoading();
       console.error(error);
-      alert("❌ Erro ao enviar.");
+      alert("❌ Erro ao enviar comprovante.");
     }
   };
 };
-
 
 window.gerarComprovanteEncomenda = function (id) {
   const encomenda = encomendas.find((e) => e.id === id);
@@ -868,7 +903,7 @@ window.gerarComprovanteEncomenda = function (id) {
 
   linha("Protocolo:", protocolo);
   linha("Ordem:", encomenda.ordem);
-  linha("Número do Bilhete:", encomenda.bilhete); 
+  linha("Número do Bilhete:", encomenda.bilhete);
   linha("Destinatário:", encomenda.destinatario);
   linha("Remetente:", encomenda.remetente);
   linha("Telefone:", encomenda.telefone);
@@ -879,23 +914,22 @@ window.gerarComprovanteEncomenda = function (id) {
   linha("Valor:", `R$ ${encomenda.valor.toFixed(2)}`);
 
   // STATUS BONITO E ORGANIZADO
-y += 5;
+  y += 5;
 
-doc.setFont(undefined, "bold");
-doc.text("Status do Pagamento:", 20, y);
+  doc.setFont(undefined, "bold");
+  doc.text("Status do Pagamento:", 20, y);
 
-doc.setFont(undefined, "bold");
+  doc.setFont(undefined, "bold");
 
-if (encomenda.statusPagamento === "PAGO") {
-  doc.setTextColor(39, 174, 96); // verde
-} else {
-  doc.setTextColor(231, 76, 60); // vermelho
-}
+  if (encomenda.statusPagamento === "PAGO") {
+    doc.setTextColor(39, 174, 96); // verde
+  } else {
+    doc.setTextColor(231, 76, 60); // vermelho
+  }
 
-doc.text(encomenda.statusPagamento, 90, y);
+  doc.text(encomenda.statusPagamento, 90, y);
 
-doc.setTextColor(0, 0, 0);
-
+  doc.setTextColor(0, 0, 0);
 
   doc.setFontSize(9);
   doc.setTextColor(120);
@@ -912,7 +946,7 @@ doc.setTextColor(0, 0, 0);
     doc.save(`Encomenda_${encomenda.ordem}.pdf`);
   };
 
-  // 📲 WHATSAPP
+  // 📲 WHATSAPP + EMAIL
   document.getElementById("btnWhatsapp").onclick = async function () {
     const confirmar = confirm("Deseja realmente enviar o comprovante?");
     if (!confirmar) return;
@@ -937,9 +971,18 @@ doc.setTextColor(0, 0, 0);
       const storageRef = ref(storage, caminho);
 
       await uploadBytes(storageRef, pdfBlob);
-
       const downloadURL = await getDownloadURL(storageRef);
 
+      // 🔥 ENVIA EMAIL
+      if (encomenda.email) {
+        await enviarEmailFunction({
+          email: encomenda.email,
+          nome: encomenda.destinatario,
+          link: downloadURL,
+        });
+      }
+
+      // 🔥 ENVIA WHATSAPP
       const mensagem = `
 📦 *AGÊNCIA LIRA*
 
@@ -950,19 +993,18 @@ ${downloadURL}
 `;
 
       esconderLoading();
-
       enviarWhatsapp(encomenda.telefone, mensagem);
     } catch (error) {
       esconderLoading();
       console.error(error);
-      alert("❌ Erro ao enviar.");
+      alert("❌ Erro ao enviar comprovante.");
     }
   };
 };
 
 window.gerarPrestacaoContas = function () {
   if (!window.dadosRelatorio) {
-    alert("⚠️ Por favor, gere um relatório primeiro antes de exportar!");
+    alert("⚠️ Gere o relatório primeiro!");
     return;
   }
 
@@ -970,172 +1012,223 @@ window.gerarPrestacaoContas = function () {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF("p", "mm", "a4");
 
-  // ================================
-  // CABEÇALHO
-  // ================================
+  let y = 15;
 
-  doc.setFillColor(10, 37, 64);
-  doc.rect(0, 0, 210, 45, "F");
+  // ===============================
+  // 🔷 CABEÇALHO IGUAL AO MODELO
+  // ===============================
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
+  doc.setFontSize(18);
   doc.setFont(undefined, "bold");
-  doc.text("AGÊNCIA LIRA", 105, 15, { align: "center" });
+  doc.text("AGÊNCIA LIRA", 105, y, { align: "center" });
 
-  doc.setFontSize(14);
-  doc.setFont(undefined, "normal");
-  doc.text("RELATÓRIO DE PRESTAÇÃO DE CONTAS", 105, 25, { align: "center" });
-  doc.text("Com a Embarcação", 105, 32, { align: "center" });
+  y += 8;
+  doc.setFontSize(13);
+  doc.text("PRESTAÇÃO DE CONTAS - RELAÇÃO DE VIAGEM", 105, y, {
+    align: "center",
+  });
 
+  y += 8;
   doc.setFontSize(11);
   doc.text(
     `Período: ${new Date(dados.dataInicial).toLocaleDateString("pt-BR")} a ${new Date(dados.dataFinal).toLocaleDateString("pt-BR")}`,
     105,
-    39,
+    y,
     { align: "center" },
   );
 
-  // ================================
-  // RESUMO FINANCEIRO
-  // ================================
+  y += 15;
 
-  doc.setTextColor(0, 0, 0);
+  // ============================================
+  // 🟦 BALANÇO GERAL PASSAGENS
+  // ============================================
+
   doc.setFontSize(13);
   doc.setFont(undefined, "bold");
-  doc.text("RESUMO FINANCEIRO", 15, 60);
+  doc.text("BALANÇO GERAL - PASSAGENS", 15, y);
+
+  y += 5;
 
   doc.autoTable({
-    startY: 65,
-    head: [["Descrição", "Quantidade", "Valor (R$)"]],
+    startY: y,
+    head: [["Descrição", "Valor (R$)"]],
     body: [
+      ["Total Geral", `R$ ${dados.receitaPass.toFixed(2)}`],
+      ["Comissão Agência (10%)", `R$ ${dados.comissaoPass.toFixed(2)}`],
       [
-        "Passagens Vendidas",
-        dados.passagens.length,
-        `R$ ${dados.receitaPass.toFixed(2)}`,
+        "Lucro Líquido",
+        `R$ ${(dados.receitaPass - dados.comissaoPass).toFixed(2)}`,
       ],
+      ["Quantidade Passageiros", dados.passagens.length],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: [0, 70, 140] },
+  });
+
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ============================================
+  // 🧍 RELAÇÃO COMPLETA PASSAGEIROS
+  // ============================================
+
+  doc.setFont(undefined, "bold");
+  doc.text("RELAÇÃO DE PASSAGEIROS", 15, y);
+
+  y += 5;
+
+  doc.autoTable({
+    startY: y,
+    head: [
       [
-        "Encomendas Transportadas",
-        dados.encomendas.length,
-        `R$ ${dados.receitaEnc.toFixed(2)}`,
+        "Ordem",
+        "Nome",
+        "Nascimento",
+        "Telefone",
+        "Embarque",
+        "Destino",
+        "CPF",
+        "Bilhete",
+        "Valor",
       ],
+    ],
+    body: dados.passagens.map((p, index) => [
+      index + 1,
+      p.nome,
+      new Date(p.dataNascimento).toLocaleDateString("pt-BR"),
+      p.telefone,
+      p.embarque,
+      p.destino,
+      p.cpf,
+      p.bilhete,
+      `R$ ${p.valor.toFixed(2)}`,
+    ]),
+    theme: "grid",
+    styles: { fontSize: 7 },
+    headStyles: { fillColor: [26, 77, 126] },
+  });
+
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ============================================
+  // 🟩 BALANÇO ENCOMENDAS
+  // ============================================
+
+  const totalSaco = dados.encomendas.filter((e) => e.local === "SACO").length;
+  const totalPorao = dados.encomendas.filter((e) => e.local === "PORÃO").length;
+  const totalGelo = dados.encomendas.filter((e) =>
+    e.local.includes("GELO"),
+  ).length;
+
+  doc.setFont(undefined, "bold");
+  doc.text("BALANÇO GERAL - ENCOMENDAS", 15, y);
+
+  y += 5;
+
+  doc.autoTable({
+    startY: y,
+    head: [["Descrição", "Valor"]],
+    body: [
+      ["Total Geral", `R$ ${dados.receitaEnc.toFixed(2)}`],
+      ["Comissão Agência (30%)", `R$ ${dados.comissaoEnc.toFixed(2)}`],
       [
-        "RECEITA TOTAL",
-        "",
+        "Lucro Líquido",
+        `R$ ${(dados.receitaEnc - dados.comissaoEnc).toFixed(2)}`,
+      ],
+      ["Total Volumes", dados.totalVolumes],
+      ["Total SACO", totalSaco],
+      ["Total PORÃO", totalPorao],
+      ["Total GELO/FRIGORÍFICO", totalGelo],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: [0, 120, 70] },
+  });
+
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ============================================
+  // 📦 RELAÇÃO COMPLETA ENCOMENDAS
+  // ============================================
+
+  doc.setFont(undefined, "bold");
+  doc.text("RELAÇÃO DE ENCOMENDAS", 15, y);
+
+  y += 5;
+
+  doc.autoTable({
+    startY: y,
+    head: [
+      [
+        "Ordem",
+        "Destinatário",
+        "Bilhete",
+        "Remetente",
+        "Local",
+        "Espécie",
+        "Volumes",
+        "Valor",
+      ],
+    ],
+    body: dados.encomendas.map((e, index) => [
+      index + 1,
+      e.destinatario,
+      e.bilhete,
+      e.remetente,
+      e.local,
+      e.especie,
+      e.volumes,
+      `R$ ${e.valor.toFixed(2)}`,
+    ]),
+    theme: "grid",
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [0, 120, 70] },
+  });
+
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ============================================
+  // 🟪 RESUMO FINAL DA VIAGEM
+  // ============================================
+
+  doc.setFont(undefined, "bold");
+  doc.text("RESUMO FINAL DA VIAGEM", 15, y);
+
+  y += 5;
+
+  doc.autoTable({
+    startY: y,
+    head: [["Descrição", "Valor (R$)"]],
+    body: [
+      ["Total Passagens", `R$ ${dados.receitaPass.toFixed(2)}`],
+      ["Total Encomendas", `R$ ${dados.receitaEnc.toFixed(2)}`],
+      [
+        "Total Geral",
         `R$ ${(dados.receitaPass + dados.receitaEnc).toFixed(2)}`,
       ],
+      ["Comissão Total", `R$ ${dados.comissaoTotal.toFixed(2)}`],
+      ["Lucro Líquido Final", `R$ ${dados.lucro.toFixed(2)}`],
     ],
     theme: "grid",
-    headStyles: { fillColor: [26, 77, 126], fontSize: 11 },
-    styles: { fontSize: 10 },
-    columnStyles: {
-      0: { cellWidth: 100 },
-      1: { cellWidth: 40, halign: "center" },
-      2: { cellWidth: 45, halign: "right" },
-    },
+    headStyles: { fillColor: [90, 0, 140] },
   });
 
-  let finalY = doc.lastAutoTable.finalY + 10;
-
-  // ================================
-  // COMISSÕES
-  // ================================
-
-  doc.setFontSize(13);
-  doc.setFont(undefined, "bold");
-  doc.text("COMISSÕES DA AGÊNCIA", 15, finalY);
-
-  doc.autoTable({
-    startY: finalY + 5,
-    head: [["Tipo", "Base", "Taxa", "Comissão (R$)"]],
-    body: [
-      [
-        "Passagens",
-        `R$ ${dados.receitaPass.toFixed(2)}`,
-        "10%",
-        `R$ ${dados.comissaoPass.toFixed(2)}`,
-      ],
-      [
-        "Encomendas",
-        `R$ ${dados.receitaEnc.toFixed(2)}`,
-        "30%",
-        `R$ ${dados.comissaoEnc.toFixed(2)}`,
-      ],
-      ["TOTAL COMISSÃO", "", "", `R$ ${dados.comissaoTotal.toFixed(2)}`],
-    ],
-    theme: "grid",
-    headStyles: { fillColor: [26, 77, 126], fontSize: 11 },
-    styles: { fontSize: 10 },
-  });
-
-  finalY = doc.lastAutoTable.finalY + 10;
-
-  // ================================
-  // VALOR FINAL
-  // ================================
-
-  doc.setFillColor(232, 244, 248);
-  doc.rect(10, finalY, 190, 30, "F");
-
-  doc.setFontSize(12);
-  doc.setFont(undefined, "bold");
-  doc.text("VALOR A REPASSAR PARA EMBARCAÇÃO:", 15, finalY + 10);
-
-  doc.setFontSize(18);
-  doc.setTextColor(39, 174, 96);
-  doc.text(`R$ ${dados.lucro.toFixed(2)}`, 15, finalY + 22);
-
-  doc.setTextColor(0, 0, 0);
-
-  // ================================
+  // ============================================
   // RODAPÉ
-  // ================================
+  // ============================================
 
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
     doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text(`Página ${i} de ${pageCount}`, 105, 287, { align: "center" });
-    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, 292, {
-      align: "center",
-    });
+    doc.text(`Página ${i} de ${pages}`, 105, 290, { align: "center" });
   }
-
-  // ================================
-  // PREVIEW
-  // ================================
 
   const pdfUrl = doc.output("bloburl");
   document.getElementById("pdfPreview").src = pdfUrl;
   document.getElementById("pdfModal").style.display = "flex";
 
   document.getElementById("btnBaixarPdf").onclick = function () {
-    doc.save(`Relatorio_${dados.dataInicial}_a_${dados.dataFinal}.pdf`);
+    doc.save(`Prestacao_Contas_${dados.dataInicial}_a_${dados.dataFinal}.pdf`);
   };
-
-  // ================================
-  // 🔥 SALVAR NO STORAGE ORGANIZADO
-  // ================================
-
-  (async () => {
-    try {
-      const pdfBlob = doc.output("blob");
-
-      const hoje = new Date();
-      const ano = hoje.getFullYear();
-      const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-
-      const nomeArquivo = `comprovantes/${usuarioLogadoEmail}/${ano}/${mes}/relatorios/relatorio_${dados.dataInicial}_a_${dados.dataFinal}.pdf`;
-
-      const storageRef = ref(storage, nomeArquivo);
-
-      await uploadBytes(storageRef, pdfBlob);
-
-      console.log("✅ Relatório salvo no Storage organizado!");
-    } catch (error) {
-      console.error("❌ Erro ao salvar relatório:", error);
-    }
-  })();
 };
 
 window.gerarGraficos = function (dados) {
@@ -1273,7 +1366,6 @@ document.getElementById("telefone").addEventListener("input", function (e) {
 
   e.target.value = value;
 });
-
 
 document
   .getElementById("telefoneEncomenda")
