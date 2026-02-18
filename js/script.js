@@ -48,8 +48,6 @@ function formatarDataBR(dataISO) {
   return `${partes[2]}/${partes[1]}/${partes[0]}`;
 }
 
-
-
 function hojeLocalISO() {
   const hoje = new Date();
   const ano = hoje.getFullYear();
@@ -58,7 +56,6 @@ function hojeLocalISO() {
 
   return `${ano}-${mes}-${dia}`;
 }
-
 
 function gerarGraficosDashboard(receitaPass, receitaEnc) {
   const ctxResumo = document.getElementById("graficoResumo");
@@ -847,15 +844,12 @@ window.gerarComprovantePassagem = function (id) {
   linha("Email:", passagem.email);
   linha("Embarque:", passagem.embarque);
   linha("Destino:", passagem.destino);
-  linha(
-    "Data da Viagem:",
-    passagem.dataViagem.split("-").reverse().join("/"),
-  );
+  linha("Data da Viagem:", passagem.dataViagem.split("-").reverse().join("/"));
   linha("Valor:", `R$ ${passagem.valor.toFixed(2)}`);
   linha(
-  "Valor da Refeição:",
-  `R$ ${Number(passagem.valorRefeicao || 0).toFixed(2)}`
-);
+    "Valor da Refeição:",
+    `R$ ${Number(passagem.valorRefeicao || 0).toFixed(2)}`,
+  );
 
   linha("PCD:", passagem.pcd ? "SIM " : "NÃO");
 
@@ -1103,20 +1097,31 @@ window.gerarPrestacaoContas = function () {
   let y = 15;
 
   // ===============================
-  // 🔷 CABEÇALHO AJUSTADO
+  // 🔢 CÁLCULOS IMPORTANTES
+  // ===============================
+
+  const totalValorRefeicoes = dados.passagens.reduce(
+    (total, p) => total + Number(p.valorRefeicao || 0),
+    0
+  );
+
+  const qtdRefeicoesPagas = dados.passagens.filter(
+    (p) => Number(p.valorRefeicao || 0) > 0
+  ).length;
+
+  const receitaTotalPass = dados.receitaPass + totalValorRefeicoes;
+
+  // ===============================
+  // 🔷 CABEÇALHO
   // ===============================
 
   const pageWidth = doc.internal.pageSize.getWidth();
-
-  // 🔹 Pega proporção real da imagem
   const imgProps = doc.getImageProperties(logoBase64);
-  const imgWidth = 55; // largura ideal
+  const imgWidth = 55;
   const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-
   const x = (pageWidth - imgWidth) / 2;
 
   doc.addImage(logoBase64, "PNG", x, y, imgWidth, imgHeight);
-
   y += imgHeight + 8;
 
   doc.setFontSize(18);
@@ -1125,9 +1130,7 @@ window.gerarPrestacaoContas = function () {
 
   y += 8;
   doc.setFontSize(13);
-  doc.text("PRESTAÇÃO DE CONTAS - RELAÇÃO DE VIAGEM", 105, y, {
-    align: "center",
-  });
+  doc.text("PRESTAÇÃO DE CONTAS - RELAÇÃO DE VIAGEM", 105, y, { align: "center" });
 
   y += 8;
   doc.setFontSize(11);
@@ -1135,7 +1138,7 @@ window.gerarPrestacaoContas = function () {
     `Período: ${formatarDataBR(dados.dataInicial)} a ${formatarDataBR(dados.dataFinal)}`,
     105,
     y,
-    { align: "center" },
+    { align: "center" }
   );
 
   y += 15;
@@ -1153,14 +1156,13 @@ window.gerarPrestacaoContas = function () {
     startY: y,
     head: [["Descrição", "Valor (R$)"]],
     body: [
-      ["Total Geral", `R$ ${dados.receitaPass.toFixed(2)}`],
+      ["Total Passagens", `R$ ${dados.receitaPass.toFixed(2)}`],
+      ["Total Refeições", `R$ ${totalValorRefeicoes.toFixed(2)}`],
+      ["Receita Bruta Total", `R$ ${receitaTotalPass.toFixed(2)}`],
       ["Comissão Agência (10%)", `R$ ${dados.comissaoPass.toFixed(2)}`],
-      [
-        "Lucro Líquido",
-        `R$ ${(dados.receitaPass - dados.comissaoPass).toFixed(2)}`,
-      ],
+      ["Lucro Líquido", `R$ ${(receitaTotalPass - dados.comissaoPass).toFixed(2)}`],
       ["Quantidade Passageiros", dados.passagens.length],
-      ["Total Refeições", dados.totalRefeicoes ?? 0],
+      ["Passageiros que pagaram Refeição", qtdRefeicoesPagas],
       ["Total Passageiros PCD", dados.passagens.filter((p) => p.pcd).length],
     ],
     theme: "grid",
@@ -1190,42 +1192,26 @@ window.gerarPrestacaoContas = function () {
         "CPF",
         "Bilhete",
         "PCD",
-        "Refeições",
-        "Valor",
+        "Refeição (R$)",
+        "Passagem (R$)",
       ],
     ],
     body:
-      dados.passagens && dados.passagens.length > 0
+      dados.passagens.length > 0
         ? dados.passagens.map((p, index) => [
             p.ordem ?? index + 1,
             p.nome ?? "-",
-            p.dataNascimento
-              ? new Date(p.dataNascimento).toLocaleDateString("pt-BR")
-              : "-",
+            p.dataNascimento ? formatarDataBR(p.dataNascimento) : "-",
             p.telefone ?? "-",
             p.embarque ?? "-",
             p.destino ?? "-",
             p.cpf ?? "-",
             p.bilhete ?? "-",
             p.pcd ? "SIM" : "NÃO",
-            p.refeicoes ?? 0,
+            `R$ ${Number(p.valorRefeicao || 0).toFixed(2)}`,
             `R$ ${Number(p.valor || 0).toFixed(2)}`,
           ])
-        : [
-            [
-              "-",
-              "Nenhum passageiro encontrado",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-            ],
-          ],
+        : [["-", "Nenhum passageiro encontrado"]],
     theme: "grid",
     styles: { fontSize: 7 },
     headStyles: { fillColor: [26, 77, 126] },
@@ -1234,170 +1220,26 @@ window.gerarPrestacaoContas = function () {
   y = doc.lastAutoTable.finalY + 10;
 
   // ===============================
-  // 🟩 BALANÇO ENCOMENDAS
+  // 📊 PAINEL PREMIUM
   // ===============================
-
-  const totalVolumesGerais = dados.totalVolumes ?? 0;
-  const totalSaco = dados.encomendas.filter((e) => e.local === "SACO").length;
-  const totalPorao = dados.encomendas.filter((e) => e.local === "PORÃO").length;
-  const totalFrigorifico = dados.encomendas.filter((e) =>
-    e.local?.toUpperCase().includes("GELO"),
-  ).length;
-
-  const totalDestinosDuplos = dados.encomendas.filter((e) =>
-    e.destino?.includes("/"),
-  ).length;
-
-  const dataViagem =
-    dados.encomendas.length > 0
-      ? formatarDataBR(dados.encomendas[0].dataViagem)
-      : "-";
-
-  const embarcacao = "F/B OBIDENSE III";
-
-  doc.setFont(undefined, "bold");
-  doc.text("BALANÇO GERAL - ENCOMENDAS", 15, y);
-  y += 5;
-
-  doc.autoTable({
-    startY: y,
-    head: [["Descrição", "Valor"]],
-    body: [
-      ["Total Geral", `R$ ${dados.receitaEnc.toFixed(2)}`],
-      ["Comissão Agência (30%)", `R$ ${dados.comissaoEnc.toFixed(2)}`],
-      [
-        "Lucro Líquido",
-        `R$ ${(dados.receitaEnc - dados.comissaoEnc).toFixed(2)}`,
-      ],
-      ["Total de Volumes Gerais", totalVolumesGerais],
-      ["Total dentro do Saco Vermelho", totalSaco],
-      ["Total levado para o Porão", totalPorao],
-      ["Total destinado ao Frigorífico", totalFrigorifico],
-      ["Total de Volumes com Destinos Duplos", totalDestinosDuplos],
-      ["Data da Viagem", dataViagem],
-      ["Embarcação", embarcacao],
-    ],
-    theme: "grid",
-    headStyles: { fillColor: [0, 120, 70] },
-  });
-
-  y = doc.lastAutoTable.finalY + 10;
-
-  // ===============================
-  // 📦 RELAÇÃO COMPLETA DE ENCOMENDAS
-  // ===============================
-
-  doc.setFont(undefined, "bold");
-  doc.text("RELAÇÃO DE ENCOMENDAS", 15, y);
-  y += 5;
-
-  doc.autoTable({
-    startY: y,
-    head: [
-      [
-        "Ordem",
-        "Remetente",
-        "Destinatário",
-        "Telefone",
-        "Bilhete",
-        "Local",
-        "Cidade Destino", // 🔥 NOVO
-        "Espécie",
-        "Volumes",
-        "Valor (R$)",
-        "Pagamento",
-      ],
-    ],
-
-    body:
-      dados.encomendas && dados.encomendas.length > 0
-        ? dados.encomendas.map((e, index) => {
-            return [
-              e.ordem ?? index + 1,
-              e.remetente ?? "-",
-              e.destinatario ?? "-",
-              e.telefone ?? "-",
-              e.bilhete ?? "-",
-              e.local ?? "-",
-              e.cidadeDestino ?? "-", // 🔥 NOVO CAMPO
-              e.especie ?? "-",
-              e.volumes ?? 0,
-              `R$ ${Number(e.valor || 0).toFixed(2)}`,
-              e.statusPagamento ?? "-",
-            ];
-          })
-        : [
-            [
-              "-",
-              "Nenhuma encomenda encontrada",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-              "-",
-            ],
-          ],
-
-    theme: "grid",
-    styles: { fontSize: 7 },
-    headStyles: { fillColor: [0, 120, 70] },
-  });
-
-  y = doc.lastAutoTable.finalY + 10;
-
-  // ===============================
-  // 📊 DETALHAMENTO ESTILO PAINEL PREMIUM
-  // ===============================
-
-  // 🔥 CONTAGEM POR DESTINO
-
-  const cidades = ["MANAUS", "PARINTINS", "JURUTI", "ÓBIDOS", "SANTARÉM"];
-
-  const contagemCidades = {};
-
-  cidades.forEach((cidade) => {
-    contagemCidades[cidade] = dados.passagens.filter(
-      (p) => p.destino === cidade,
-    ).length;
-  });
 
   doc.addPage();
 
   const azulEscuro = [0, 0, 150];
   const azulClaro = [220, 230, 255];
-  const verdeLucro = [0, 130, 0];
 
-  // 🔷 TÍTULO
   doc.setFillColor(0, 0, 150);
   doc.rect(0, 10, 210, 12, "F");
 
   doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
-  doc.setFont(undefined, "bold");
   doc.text("RELAÇÃO DA VIAGEM", 105, 18, { align: "center" });
-
   doc.setTextColor(0, 0, 0);
 
   let yPainel = 30;
 
-  function aplicarEstilo(data) {
-    const texto = String(data.cell.raw);
-
-    if (texto.includes("LUCRO")) {
-      data.cell.styles.textColor = verdeLucro;
-      data.cell.styles.fontStyle = "bold";
-    }
-
-    if (texto.includes("TOTAL GERAL")) {
-      data.cell.styles.fontStyle = "bold";
-    }
-  }
-
   // 🔵 PASSAGEM
-  doc.text("PASSAGEM", 25, yPainel);
+  doc.text("PASSAGEM", 20, yPainel);
 
   doc.autoTable({
     startY: yPainel + 5,
@@ -1405,29 +1247,18 @@ window.gerarPrestacaoContas = function () {
     tableWidth: 60,
     head: [["Descrição", "Valor"]],
     body: [
-      ["TOTAL GERAL", `R$ ${dados.receitaPass.toFixed(2)}`],
-      ["COMISSÃO/AGÊNCIA", `R$ ${dados.comissaoPass.toFixed(2)}`],
-      [
-        "LUCRO LÍQUIDO",
-        `R$ ${(dados.receitaPass - dados.comissaoPass).toFixed(2)}`,
-      ],
-      ["QUANT. PASSAGENS", dados.passagens.length],
-      ["MANAUS", contagemCidades["MANAUS"]],
-      ["PARINTINS", contagemCidades["PARINTINS"]],
-      ["JURUTI", contagemCidades["JURUTI"]],
-      ["ÓBIDOS", contagemCidades["ÓBIDOS"]],
-      ["SANTARÉM", contagemCidades["SANTARÉM"]],
+      ["TOTAL PASSAGENS", `R$ ${dados.receitaPass.toFixed(2)}`],
+      ["TOTAL REFEIÇÕES", `R$ ${totalValorRefeicoes.toFixed(2)}`],
+      ["RECEITA TOTAL", `R$ ${receitaTotalPass.toFixed(2)}`],
+      ["LUCRO LÍQUIDO", `R$ ${(receitaTotalPass - dados.comissaoPass).toFixed(2)}`],
     ],
-
     theme: "grid",
     headStyles: { fillColor: azulEscuro, textColor: 255 },
     alternateRowStyles: { fillColor: azulClaro },
-    styles: { fontSize: 9 },
-    didParseCell: aplicarEstilo,
   });
 
-  // 🔵 ENCOMENDA
-  doc.text("ENCOMENDA", 95, yPainel);
+  // 🔵 REFEIÇÕES (INFORMATIVO)
+  doc.text("REFEIÇÕES (INFORMATIVO)", 90, yPainel);
 
   doc.autoTable({
     startY: yPainel + 5,
@@ -1435,42 +1266,12 @@ window.gerarPrestacaoContas = function () {
     tableWidth: 60,
     head: [["Descrição", "Valor"]],
     body: [
-      ["TOTAL GERAL", `R$ ${dados.receitaEnc.toFixed(2)}`],
-      ["COMISSÃO/AGÊNCIA", `R$ ${dados.comissaoEnc.toFixed(2)}`],
-      [
-        "LUCRO LÍQUIDO",
-        `R$ ${(dados.receitaEnc - dados.comissaoEnc).toFixed(2)}`,
-      ],
-      ["TOTAL DE VOLUMES", dados.totalVolumes ?? 0],
+      ["TOTAL ARRECADADO", `R$ ${totalValorRefeicoes.toFixed(2)}`],
+      ["PASSAGEIROS QUE PAGARAM", qtdRefeicoesPagas],
+      ["COMISSÃO", "NÃO SE APLICA"],
     ],
     theme: "grid",
-    headStyles: { fillColor: azulEscuro, textColor: 255 },
-    alternateRowStyles: { fillColor: azulClaro },
-    styles: { fontSize: 9 },
-    didParseCell: aplicarEstilo,
-  });
-
-  // 🔵 TOTAL
-  doc.text("TOTAL", 165, yPainel);
-
-  doc.autoTable({
-    startY: yPainel + 5,
-    margin: { left: 145 },
-    tableWidth: 60,
-    head: [["Descrição", "Valor"]],
-    body: [
-      [
-        "TOTAL GERAL",
-        `R$ ${(dados.receitaPass + dados.receitaEnc).toFixed(2)}`,
-      ],
-      ["COMISSÃO TOTAL", `R$ ${dados.comissaoTotal.toFixed(2)}`],
-      ["LUCRO LÍQUIDO", `R$ ${dados.lucro.toFixed(2)}`],
-    ],
-    theme: "grid",
-    headStyles: { fillColor: azulEscuro, textColor: 255 },
-    alternateRowStyles: { fillColor: azulClaro },
-    styles: { fontSize: 9 },
-    didParseCell: aplicarEstilo,
+    headStyles: { fillColor: [100, 100, 100], textColor: 255 },
   });
 
   // ===============================
@@ -1484,10 +1285,6 @@ window.gerarPrestacaoContas = function () {
     doc.text(`Página ${i} de ${pages}`, 105, 290, { align: "center" });
   }
 
-  // ===============================
-  // PREVIEW + DOWNLOAD
-  // ===============================
-
   const pdfUrl = doc.output("bloburl");
   document.getElementById("pdfPreview").src = pdfUrl;
   document.getElementById("pdfModal").style.display = "flex";
@@ -1496,20 +1293,13 @@ window.gerarPrestacaoContas = function () {
   document.getElementById("btnBaixarPdf").style.display = "inline-block";
 
   document.getElementById("btnBaixarPdf").onclick = function () {
-    const dataInicialFormatada = formatarDataBR(dados.dataInicial).replace(
-      /\//g,
-      "-",
-    );
-    const dataFinalFormatada = formatarDataBR(dados.dataFinal).replace(
-      /\//g,
-      "-",
-    );
+    const dataInicialFormatada = formatarDataBR(dados.dataInicial).replace(/\//g, "-");
+    const dataFinalFormatada = formatarDataBR(dados.dataFinal).replace(/\//g, "-");
 
-    doc.save(
-      `Prestacao_Contas_${dataInicialFormatada}_a_${dataFinalFormatada}.pdf`,
-    );
+    doc.save(`Prestacao_Contas_${dataInicialFormatada}_a_${dataFinalFormatada}.pdf`);
   };
 };
+
 
 window.gerarGraficos = function (dados) {
   const ctxReceita = document.getElementById("graficoReceita");
@@ -1770,7 +1560,6 @@ function formatarMoeda(input) {
   input.value = "R$ " + valor;
 }
 
-
 document.getElementById("valorPassagem").addEventListener("input", function () {
   formatarMoeda(this);
 });
@@ -1866,4 +1655,3 @@ window.addEventListener("DOMContentLoaded", function () {
     });
   }
 });
-
