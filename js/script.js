@@ -191,6 +191,12 @@ document
 
     valor = parseFloat(valor);
 
+    // 🔥 NOVA VALIDAÇÃO IMPORTANTE
+    if (embarqueVal === destinoVal) {
+      alert("⚠️ Embarque e Destino não podem ser iguais!");
+      return; // 🚫 PARA TOTALMENTE A EXECUÇÃO
+    }
+
     // 🔴 VALIDAÇÃO COMPLETA
     if (
       !nome ||
@@ -222,7 +228,7 @@ document
     }
 
     const passagem = {
-      ordem: passagens.length + 1, // 🔥 sequência 1,2,3...
+      ordem: passagens.length + 1,
       bilhete: bilheteVal,
       nome,
       cpf,
@@ -399,7 +405,7 @@ function renderizarEncomendas() {
   if (!encomendas || encomendas.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="12"
+        <td colspan="13"
           style="text-align:center; color: var(--text-light);">
           Nenhuma encomenda cadastrada
         </td>
@@ -420,6 +426,7 @@ function renderizarEncomendas() {
         <td>${e.remetente}</td>
         <td>${e.bilhete}</td>
         <td>${e.local}</td>
+        <td>${e.cidadeDestino || "-"}</td> <!-- 🔥 NOVO CAMPO -->
         <td>${e.especie}</td>
         <td>${e.volumes}</td>
         <td>R$ ${e.valor.toFixed(2)}</td>
@@ -924,6 +931,7 @@ window.gerarComprovanteEncomenda = function (id) {
   linha("Telefone:", encomenda.telefone);
   linha("Email:", encomenda.email);
   linha("Local:", encomenda.local);
+  linha("Cidade de Destino:", encomenda.cidadeDestino || "-"); // 🔥 NOVO
   linha("Espécie:", encomenda.especie);
   linha("Volumes:", encomenda.volumes);
   linha("Valor:", `R$ ${encomenda.valor.toFixed(2)}`);
@@ -1228,6 +1236,7 @@ window.gerarPrestacaoContas = function () {
         "Telefone",
         "Bilhete",
         "Local",
+        "Cidade Destino", // 🔥 NOVO
         "Espécie",
         "Volumes",
         "Valor (R$)",
@@ -1245,6 +1254,7 @@ window.gerarPrestacaoContas = function () {
               e.telefone ?? "-",
               e.bilhete ?? "-",
               e.local ?? "-",
+              e.cidadeDestino ?? "-", // 🔥 NOVO CAMPO
               e.especie ?? "-",
               e.volumes ?? 0,
               `R$ ${Number(e.valor || 0).toFixed(2)}`,
@@ -1273,9 +1283,21 @@ window.gerarPrestacaoContas = function () {
 
   y = doc.lastAutoTable.finalY + 10;
 
-    // ===============================
+  // ===============================
   // 📊 DETALHAMENTO ESTILO PAINEL PREMIUM
   // ===============================
+
+  // 🔥 CONTAGEM POR DESTINO
+
+  const cidades = ["MANAUS", "PARINTINS", "JURUTI", "ÓBIDOS", "SANTARÉM"];
+
+  const contagemCidades = {};
+
+  cidades.forEach((cidade) => {
+    contagemCidades[cidade] = dados.passagens.filter(
+      (p) => p.destino === cidade,
+    ).length;
+  });
 
   doc.addPage();
 
@@ -1320,9 +1342,18 @@ window.gerarPrestacaoContas = function () {
     body: [
       ["TOTAL GERAL", `R$ ${dados.receitaPass.toFixed(2)}`],
       ["COMISSÃO/AGÊNCIA", `R$ ${dados.comissaoPass.toFixed(2)}`],
-      ["LUCRO LÍQUIDO", `R$ ${(dados.receitaPass - dados.comissaoPass).toFixed(2)}`],
+      [
+        "LUCRO LÍQUIDO",
+        `R$ ${(dados.receitaPass - dados.comissaoPass).toFixed(2)}`,
+      ],
       ["QUANT. PASSAGENS", dados.passagens.length],
+      ["MANAUS", contagemCidades["MANAUS"]],
+      ["PARINTINS", contagemCidades["PARINTINS"]],
+      ["JURUTI", contagemCidades["JURUTI"]],
+      ["ÓBIDOS", contagemCidades["ÓBIDOS"]],
+      ["SANTARÉM", contagemCidades["SANTARÉM"]],
     ],
+
     theme: "grid",
     headStyles: { fillColor: azulEscuro, textColor: 255 },
     alternateRowStyles: { fillColor: azulClaro },
@@ -1341,7 +1372,10 @@ window.gerarPrestacaoContas = function () {
     body: [
       ["TOTAL GERAL", `R$ ${dados.receitaEnc.toFixed(2)}`],
       ["COMISSÃO/AGÊNCIA", `R$ ${dados.comissaoEnc.toFixed(2)}`],
-      ["LUCRO LÍQUIDO", `R$ ${(dados.receitaEnc - dados.comissaoEnc).toFixed(2)}`],
+      [
+        "LUCRO LÍQUIDO",
+        `R$ ${(dados.receitaEnc - dados.comissaoEnc).toFixed(2)}`,
+      ],
       ["TOTAL DE VOLUMES", dados.totalVolumes ?? 0],
     ],
     theme: "grid",
@@ -1360,7 +1394,10 @@ window.gerarPrestacaoContas = function () {
     tableWidth: 60,
     head: [["Descrição", "Valor"]],
     body: [
-      ["TOTAL GERAL", `R$ ${(dados.receitaPass + dados.receitaEnc).toFixed(2)}`],
+      [
+        "TOTAL GERAL",
+        `R$ ${(dados.receitaPass + dados.receitaEnc).toFixed(2)}`,
+      ],
       ["COMISSÃO TOTAL", `R$ ${dados.comissaoTotal.toFixed(2)}`],
       ["LUCRO LÍQUIDO", `R$ ${dados.lucro.toFixed(2)}`],
     ],
@@ -1580,10 +1617,13 @@ document
     const remetente = document.getElementById("remetente").value.trim();
     const bilhete = document.getElementById("bilheteEncomenda").value.trim();
     const local = document.getElementById("localViagem").value;
+    const cidadeDestino = document.getElementById(
+      "cidadeDestinoEncomenda",
+    ).value;
     const especie = document.getElementById("especie").value.trim();
     const telefone = document.getElementById("telefoneEncomenda").value.trim();
     const email = document.getElementById("emailEncomenda").value.trim();
-    const volumes = document.getElementById("quantVolumes").value;
+    const volumes = parseInt(document.getElementById("quantVolumes").value);
     const dataViagem = document.getElementById("dataViagemEncomenda").value;
     const statusPagamento = document.getElementById("statusPagamento").value;
 
@@ -1595,20 +1635,26 @@ document
 
     valor = parseFloat(valor);
 
+    // 🔴 VALIDAÇÃO COMPLETA
     if (
       !destinatario ||
       !remetente ||
       !bilhete ||
       !local ||
+      !cidadeDestino ||
       !especie ||
       !telefone ||
       !email ||
-      !volumes ||
-      !valor ||
       !dataViagem ||
-      !statusPagamento
+      !statusPagamento ||
+      isNaN(volumes) ||
+      volumes <= 0 ||
+      isNaN(valor) ||
+      valor <= 0
     ) {
-      alert("❌ Todos os campos são obrigatórios!");
+      alert(
+        "❌ Todos os campos são obrigatórios e valores devem ser maiores que zero!",
+      );
       return;
     }
 
@@ -1623,10 +1669,11 @@ document
       remetente,
       bilhete,
       local,
+      cidadeDestino, // 🔥 NOVO CAMPO
       telefone,
       email,
       especie,
-      volumes: parseInt(volumes),
+      volumes,
       valor,
       statusPagamento,
       dataViagem,
@@ -1696,4 +1743,44 @@ function gerarNumeroEncomenda() {
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("bilhete").value = gerarNumeroBilhete();
   document.getElementById("bilheteEncomenda").value = gerarNumeroEncomenda();
+});
+
+// 🔒 Impede embarque e destino iguais
+document.addEventListener("DOMContentLoaded", function () {
+  const formPassagem = document.getElementById("formPassagem");
+
+  if (formPassagem) {
+    formPassagem.addEventListener("submit", function (e) {
+      const embarque = document.getElementById("embarque").value;
+      const destino = document.getElementById("destino").value;
+
+      if (embarque === destino) {
+        alert("⚠️ Embarque e Destino não podem ser iguais!");
+        e.preventDefault();
+      }
+    });
+  }
+});
+
+// 🔄 Bloqueia destino igual ao embarque automaticamente
+function atualizarOpcoesSelect(selectOrigem, selectDestino) {
+  const valorSelecionado = selectOrigem.value;
+
+  Array.from(selectDestino.options).forEach((option) => {
+    option.disabled = false;
+
+    if (option.value === valorSelecionado && option.value !== "") {
+      option.disabled = true;
+    }
+  });
+}
+
+// Quando mudar EMBARQUE
+document.getElementById("embarque").addEventListener("change", function () {
+  atualizarOpcoesSelect(this, document.getElementById("destino"));
+});
+
+// Quando mudar DESTINO
+document.getElementById("destino").addEventListener("change", function () {
+  atualizarOpcoesSelect(this, document.getElementById("embarque"));
 });

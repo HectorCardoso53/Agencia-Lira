@@ -4,13 +4,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Navegação -Agência Lira</title>
+    <title>Sistema de Navegação - Agência Lira</title>
+
+    <link rel="icon" type="image/png" href="img/logo.png">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
     <link rel="stylesheet" href="css/style.css">
 </head>
 
+
 <body>
+
     <div class="waves-decoration"></div>
 
     <div class="container">
@@ -143,23 +149,25 @@
                             <select id="embarque" required>
                                 <option value="">Selecione...</option>
                                 <option value="MANAUS">MANAUS</option>
-                                <option value="ORIXIMINÁ">ORIXIMINÁ</option>
                                 <option value="PARINTINS">PARINTINS</option>
+                                <option value="JURUTI">JURUTI</option>
+                                <option value="ÓBIDOS">ÓBIDOS</option>
                                 <option value="SANTARÉM">SANTARÉM</option>
                             </select>
                         </div>
+
 
                         <div class="form-group">
                             <label>Destino *</label>
                             <select id="destino" required>
                                 <option value="">Selecione...</option>
                                 <option value="MANAUS">MANAUS</option>
-                                <option value="ORIXIMINÁ">ORIXIMINÁ</option>
                                 <option value="PARINTINS">PARINTINS</option>
+                                <option value="JURUTI">JURUTI</option>
+                                <option value="ÓBIDOS">ÓBIDOS</option>
                                 <option value="SANTARÉM">SANTARÉM</option>
                             </select>
                         </div>
-
 
                         <div class="form-group">
                             <label>Número do Bilhete *</label>
@@ -184,7 +192,7 @@
                         <div style="margin-top:10px;">
                             <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                                 <input type="checkbox" id="pcdPassageiro">
-                                Passageiro é PCD ♿
+                                Passageiro é PCD
                             </label>
                         </div>
 
@@ -290,6 +298,18 @@
                         </div>
 
                         <div class="form-group">
+                            <label>Cidade de Destino *</label>
+                            <select id="cidadeDestinoEncomenda" required>
+                                <option value="">Selecione...</option>
+                                <option value="MANAUS">MANAUS</option>
+                                <option value="PARINTINS">PARINTINS</option>
+                                <option value="JURUTI">JURUTI</option>
+                                <option value="ÓBIDOS">ÓBIDOS</option>
+                                <option value="SANTARÉM">SANTARÉM</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
                             <label>Espécie *</label>
                             <input type="text" id="especie" required>
                         </div>
@@ -354,6 +374,7 @@
                                 <th>Remetente</th>
                                 <th>Bilhete</th>
                                 <th>Local</th>
+                                <th>Cidade Destino</th>
                                 <th>Espécie</th>
                                 <th>Volumes</th>
                                 <th>Valor</th>
@@ -365,7 +386,7 @@
 
                         <tbody id="encomendasBody">
                             <tr>
-                                <td colspan="12" style="text-align:center; color: var(--text-light);">
+                                <td colspan="13" style="text-align:center; color: var(--text-light);">
                                     Nenhuma encomenda cadastrada
                                 </td>
                             </tr>
