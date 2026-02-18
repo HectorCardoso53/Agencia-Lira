@@ -44,9 +44,21 @@ const logoBase64 =
 function formatarDataBR(dataISO) {
   if (!dataISO) return "-";
 
-  const [ano, mes, dia] = dataISO.split("-");
-  return `${dia}/${mes}/${ano}`;
+  const partes = dataISO.split("-");
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
 }
+
+
+
+function hojeLocalISO() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
 
 function gerarGraficosDashboard(receitaPass, receitaEnc) {
   const ctxResumo = document.getElementById("graficoResumo");
@@ -305,7 +317,7 @@ function renderizarPassagens() {
       <td>${p.email}</td>
       <td>${p.embarque}</td>
       <td>${p.destino}</td>
-      <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
+      <td>${formatarDataBR(p.dataViagem)}</td>
       <td>R$ ${p.valor.toFixed(2)}</td>
       <td>
   R$ ${p.valorRefeicao !== undefined ? p.valorRefeicao.toFixed(2) : "0.00"}
@@ -837,7 +849,7 @@ window.gerarComprovantePassagem = function (id) {
   linha("Destino:", passagem.destino);
   linha(
     "Data da Viagem:",
-    new Date(passagem.dataViagem).toLocaleDateString("pt-BR"),
+    passagem.dataViagem.split("-").reverse().join("/"),
   );
   linha("Valor:", `R$ ${passagem.valor.toFixed(2)}`);
   linha(
