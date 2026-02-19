@@ -180,15 +180,18 @@ document
   .addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    const nome = nomePassageiro.value.trim();
-    const cpf = cpfPassageiro.value.trim();
-    const nascimento = dataNascimento.value;
-    const telefoneVal = telefone.value.trim();
-    const emailVal = emailPassageiro.value.trim();
-    const embarqueVal = embarque.value;
-    const destinoVal = destino.value;
-    const bilheteVal = bilhete.value.trim();
-    const dataVal = dataViagem.value;
+    const nome = document.getElementById("nomePassageiro").value.trim();
+    const cpf = document.getElementById("cpfPassageiro").value.trim();
+    const nascimento = document.getElementById("dataNascimento").value;
+    const telefoneVal = document.getElementById("telefone").value.trim();
+
+    const emailInput = document.getElementById("emailPassageiro");
+    const emailVal = emailInput ? emailInput.value.trim() : "";
+
+    const embarqueVal = document.getElementById("embarque").value;
+    const destinoVal = document.getElementById("destino").value;
+    const bilheteVal = document.getElementById("bilhete").value.trim();
+    const dataVal = document.getElementById("dataViagem").value;
 
     const pcd = document.getElementById("pcdPassageiro").checked;
 
@@ -233,7 +236,6 @@ document
       !cpf ||
       !nascimento ||
       !telefoneVal ||
-      !emailVal ||
       !embarqueVal ||
       !destinoVal ||
       !bilheteVal ||
@@ -252,7 +254,8 @@ document
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    // Só valida se o usuário digitou algo
+    if (emailVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
       alert("❌ Email inválido!");
       return;
     }
@@ -311,7 +314,7 @@ function renderizarPassagens() {
       <td>${p.bilhete}</td>
       <td>${p.nome}</td>
       <td>${p.cpf}</td>
-      <td>${p.email}</td>
+      <td>${p.email || "Sem dados"}</td>
       <td>${p.embarque}</td>
       <td>${p.destino}</td>
       <td>${formatarDataBR(p.dataViagem)}</td>
@@ -319,8 +322,6 @@ function renderizarPassagens() {
       <td>
   R$ ${p.valorRefeicao !== undefined ? p.valorRefeicao.toFixed(2) : "0.00"}
 </td>
-
-
       <!-- 🔥 NOVA COLUNA PCD -->
       <td>
         ${
@@ -415,7 +416,7 @@ window.filtrarPassagens = function () {
         <td>${p.bilhete}</td>
         <td>${p.nome}</td>
         <td>${p.cpf || "-"}</td>
-        <td>${p.email || "-"}</td>
+        <td>${p.email || "Sem dados"}</td>
         <td>${p.embarque}</td>
         <td>${p.destino}</td>
         <td>${new Date(p.dataViagem).toLocaleDateString("pt-BR")}</td>
@@ -841,18 +842,12 @@ window.gerarComprovantePassagem = function (id) {
   linha("Nome:", passagem.nome);
   linha("CPF:", passagem.cpf);
   linha("Telefone:", passagem.telefone);
-  linha("Email:", passagem.email);
+  linha("Email:", passagem.email || "Sem dados");
   linha("Embarque:", passagem.embarque);
   linha("Destino:", passagem.destino);
   linha("Data da Viagem:", passagem.dataViagem.split("-").reverse().join("/"));
   linha("Valor:", `R$ ${passagem.valor.toFixed(2)}`);
-  linha(
-    "Valor da Refeição:",
-    `R$ ${Number(passagem.valorRefeicao || 0).toFixed(2)}`,
-  );
-
   linha("PCD:", passagem.pcd ? "SIM " : "NÃO");
-
   // Status abaixo de Refeições com cor
   doc.setFont(undefined, "bold");
   doc.text("Status:", 20, y);
@@ -988,7 +983,7 @@ window.gerarComprovanteEncomenda = function (id) {
   linha("Destinatário:", encomenda.destinatario);
   linha("Remetente:", encomenda.remetente);
   linha("Telefone:", encomenda.telefone);
-  linha("Email:", encomenda.email);
+  linha("Email:", encomenda.email || "Sem dados");
   linha("Local:", encomenda.local);
   linha("Cidade de Destino:", encomenda.cidadeDestino || "-"); // 🔥 NOVO
   linha("Espécie:", encomenda.especie);
@@ -1102,11 +1097,11 @@ window.gerarPrestacaoContas = function () {
 
   const totalValorRefeicoes = dados.passagens.reduce(
     (total, p) => total + Number(p.valorRefeicao || 0),
-    0
+    0,
   );
 
   const qtdRefeicoesPagas = dados.passagens.filter(
-    (p) => Number(p.valorRefeicao || 0) > 0
+    (p) => Number(p.valorRefeicao || 0) > 0,
   ).length;
 
   const receitaTotalPass = dados.receitaPass + totalValorRefeicoes;
@@ -1130,7 +1125,9 @@ window.gerarPrestacaoContas = function () {
 
   y += 8;
   doc.setFontSize(13);
-  doc.text("PRESTAÇÃO DE CONTAS - RELAÇÃO DE VIAGEM", 105, y, { align: "center" });
+  doc.text("PRESTAÇÃO DE CONTAS - RELAÇÃO DE VIAGEM", 105, y, {
+    align: "center",
+  });
 
   y += 8;
   doc.setFontSize(11);
@@ -1138,7 +1135,7 @@ window.gerarPrestacaoContas = function () {
     `Período: ${formatarDataBR(dados.dataInicial)} a ${formatarDataBR(dados.dataFinal)}`,
     105,
     y,
-    { align: "center" }
+    { align: "center" },
   );
 
   y += 15;
@@ -1160,7 +1157,10 @@ window.gerarPrestacaoContas = function () {
       ["Total Refeições", `R$ ${totalValorRefeicoes.toFixed(2)}`],
       ["Receita Bruta Total", `R$ ${receitaTotalPass.toFixed(2)}`],
       ["Comissão Agência (10%)", `R$ ${dados.comissaoPass.toFixed(2)}`],
-      ["Lucro Líquido", `R$ ${(receitaTotalPass - dados.comissaoPass).toFixed(2)}`],
+      [
+        "Lucro Líquido",
+        `R$ ${(receitaTotalPass - dados.comissaoPass).toFixed(2)}`,
+      ],
       ["Quantidade Passageiros", dados.passagens.length],
       ["Passageiros que pagaram Refeição", qtdRefeicoesPagas],
       ["Total Passageiros PCD", dados.passagens.filter((p) => p.pcd).length],
@@ -1250,7 +1250,10 @@ window.gerarPrestacaoContas = function () {
       ["TOTAL PASSAGENS", `R$ ${dados.receitaPass.toFixed(2)}`],
       ["TOTAL REFEIÇÕES", `R$ ${totalValorRefeicoes.toFixed(2)}`],
       ["RECEITA TOTAL", `R$ ${receitaTotalPass.toFixed(2)}`],
-      ["LUCRO LÍQUIDO", `R$ ${(receitaTotalPass - dados.comissaoPass).toFixed(2)}`],
+      [
+        "LUCRO LÍQUIDO",
+        `R$ ${(receitaTotalPass - dados.comissaoPass).toFixed(2)}`,
+      ],
     ],
     theme: "grid",
     headStyles: { fillColor: azulEscuro, textColor: 255 },
@@ -1293,13 +1296,20 @@ window.gerarPrestacaoContas = function () {
   document.getElementById("btnBaixarPdf").style.display = "inline-block";
 
   document.getElementById("btnBaixarPdf").onclick = function () {
-    const dataInicialFormatada = formatarDataBR(dados.dataInicial).replace(/\//g, "-");
-    const dataFinalFormatada = formatarDataBR(dados.dataFinal).replace(/\//g, "-");
+    const dataInicialFormatada = formatarDataBR(dados.dataInicial).replace(
+      /\//g,
+      "-",
+    );
+    const dataFinalFormatada = formatarDataBR(dados.dataFinal).replace(
+      /\//g,
+      "-",
+    );
 
-    doc.save(`Prestacao_Contas_${dataInicialFormatada}_a_${dataFinalFormatada}.pdf`);
+    doc.save(
+      `Prestacao_Contas_${dataInicialFormatada}_a_${dataFinalFormatada}.pdf`,
+    );
   };
 };
-
 
 window.gerarGraficos = function (dados) {
   const ctxReceita = document.getElementById("graficoReceita");
@@ -1366,7 +1376,6 @@ window.gerarGraficos = function (dados) {
 
 window.limparFormEncomenda = function () {
   document.getElementById("formEncomenda").reset();
-  document.getElementById("bilheteEncomenda").value = gerarNumeroEncomenda();
   const hoje = new Date().toISOString().split("T")[0];
   document.getElementById("dataViagemEncomenda").value = hoje;
 };
@@ -1477,7 +1486,9 @@ document
     ).value;
     const especie = document.getElementById("especie").value.trim();
     const telefone = document.getElementById("telefoneEncomenda").value.trim();
-    const email = document.getElementById("emailEncomenda").value.trim();
+    const emailInput = document.getElementById("emailEncomenda");
+    const email = emailInput ? emailInput.value.trim() : "";
+
     const volumes = parseInt(document.getElementById("quantVolumes").value);
     const dataViagem = document.getElementById("dataViagemEncomenda").value;
     const statusPagamento = document.getElementById("statusPagamento").value;
@@ -1499,7 +1510,6 @@ document
       !cidadeDestino ||
       !especie ||
       !telefone ||
-      !email ||
       !dataViagem ||
       !statusPagamento ||
       isNaN(volumes) ||
@@ -1510,11 +1520,6 @@ document
       alert(
         "❌ Todos os campos são obrigatórios e valores devem ser maiores que zero!",
       );
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      alert("❌ Email inválido!");
       return;
     }
 
@@ -1577,27 +1582,6 @@ function atualizarProgresso(valor) {
 function esconderLoading() {
   document.getElementById("loadingModal").style.display = "none";
 }
-
-function gerarNumeroBilhete() {
-  const agora = new Date();
-  const timestamp = agora.getTime(); // número único
-  const random = Math.floor(Math.random() * 100);
-
-  return "P-" + timestamp.toString().slice(-6) + random;
-}
-
-function gerarNumeroEncomenda() {
-  const agora = new Date();
-  const timestamp = agora.getTime();
-  const random = Math.floor(Math.random() * 100);
-
-  return "E-" + timestamp.toString().slice(-6) + random;
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("bilhete").value = gerarNumeroBilhete();
-  document.getElementById("bilheteEncomenda").value = gerarNumeroEncomenda();
-});
 
 // 🔒 Impede embarque e destino iguais
 document.addEventListener("DOMContentLoaded", function () {
