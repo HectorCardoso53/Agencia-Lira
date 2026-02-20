@@ -261,7 +261,9 @@ document
     }
 
     const passagem = {
-      ordem: passagens.length + 1,
+      ordem: window.passagemEditandoId
+        ? passagens.find((p) => p.id === window.passagemEditandoId)?.ordem
+        : passagens.length + 1,
       bilhete: bilheteVal,
       nome,
       cpf,
@@ -278,18 +280,30 @@ document
       pcd: pcd,
     };
 
-    await addDoc(collection(db, "passagens"), passagem);
+    if (window.passagemEditandoId) {
+      await updateDoc(
+        doc(db, "passagens", window.passagemEditandoId),
+        passagem,
+      );
 
-    alert("✅ Passagem cadastrada com sucesso!");
+      alert("✅ Passagem atualizada com sucesso!");
+      window.passagemEditandoId = null;
+    } else {
+      await addDoc(collection(db, "passagens"), passagem);
+      alert("✅ Passagem cadastrada com sucesso!");
+    }
+
     limparFormPassagem();
     await carregarDados();
   });
 
 window.limparFormPassagem = function () {
   document.getElementById("formPassagem").reset();
-  document.getElementById("bilhete").value = gerarNumeroBilhete();
-  const hoje = new Date().toISOString().split("T")[0];
-  document.getElementById("dataViagem").value = hoje;
+
+  // Se quiser limpar explicitamente:
+  document.getElementById("bilhete").value = "";
+
+  window.passagemEditandoId = null;
 };
 
 function renderizarPassagens() {
@@ -337,24 +351,31 @@ function renderizarPassagens() {
         </span>
       </td>
 
-      <td>
-        <div class="action-buttons">
-          <button class="btn btn-small"
-            onclick="gerarComprovantePassagem('${p.id}')">
-            📄 Comprovante
-          </button>
+     <td>
+  <div class="action-buttons">
 
-          <button class="btn btn-small btn-warning"
-            onclick="cancelarPassagem('${p.id}')">
-            ❌ Cancelar
-          </button>
+    <button class="btn btn-small btn-secondary"
+      onclick="editarPassagem('${p.id}')">
+      ✏️ Editar
+    </button>
 
-          <button class="btn btn-small btn-danger"
-            onclick="excluirPassagem('${p.id}')">
-            🗑️ Excluir
-          </button>
-        </div>
-      </td>
+    <button class="btn btn-small"
+      onclick="gerarComprovantePassagem('${p.id}')">
+      📄 Comprovante
+    </button>
+
+    <button class="btn btn-small btn-warning"
+      onclick="cancelarPassagem('${p.id}')">
+      ❌ Cancelar
+    </button>
+
+    <button class="btn btn-small btn-danger"
+      onclick="excluirPassagem('${p.id}')">
+      🗑️ Excluir
+    </button>
+
+  </div>
+</td>
     </tr>
   `,
     )
@@ -380,6 +401,39 @@ window.excluirPassagem = async function (id) {
     renderizarPassagens();
     atualizarDashboard();
   }
+};
+
+window.editarPassagem = function (id) {
+  const passagem = passagens.find((p) => p.id === id);
+  if (!passagem) {
+    alert("❌ Passagem não encontrada!");
+    return;
+  }
+
+  // Preenche o formulário
+  document.getElementById("nomePassageiro").value = passagem.nome || "";
+  document.getElementById("cpfPassageiro").value = passagem.cpf || "";
+  document.getElementById("dataNascimento").value =
+    passagem.dataNascimento || "";
+  document.getElementById("telefone").value = passagem.telefone || "";
+  document.getElementById("emailPassageiro").value = passagem.email || "";
+  document.getElementById("embarque").value = passagem.embarque || "";
+  document.getElementById("destino").value = passagem.destino || "";
+  document.getElementById("bilhete").value = passagem.bilhete || "";
+  document.getElementById("dataViagem").value = passagem.dataViagem || "";
+  document.getElementById("valorPassagem").value =
+    `R$ ${passagem.valor.toFixed(2)}`;
+  document.getElementById("valorRefeicao").value =
+    `R$ ${(passagem.valorRefeicao || 0).toFixed(2)}`;
+  document.getElementById("pcdPassageiro").checked = passagem.pcd || false;
+
+  // Salva ID temporariamente
+  window.passagemEditandoId = id;
+
+  // Vai para aba Passagens
+  showTab("passagens", document.querySelector(".tab-btn:nth-child(2)"));
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 window.filtrarPassagens = function () {
@@ -498,36 +552,72 @@ function renderizarEncomendas() {
         </td>
 
         <td>
-          <div class="action-buttons">
+         <div class="action-buttons">
 
-            ${
-              status !== "PAGO"
-                ? `
-                <button class="btn btn-small btn-success"
-                  onclick="marcarComoPago('${e.id}')">
-                  💰 Marcar como Pago
-                </button>
-                `
-                : ""
-            }
+  <button class="btn btn-small btn-secondary"
+    onclick="editarEncomenda('${e.id}')">
+    ✏️ Editar
+  </button>
 
-            <button class="btn btn-small"
-              onclick="gerarComprovanteEncomenda('${e.id}')">
-              📄 Comprovante
-            </button>
+  ${
+    status !== "PAGO"
+      ? `
+      <button class="btn btn-small btn-success"
+        onclick="marcarComoPago('${e.id}')">
+        💰 Marcar como Pago
+      </button>
+      `
+      : ""
+  }
 
-            <button class="btn btn-small btn-danger"
-              onclick="excluirEncomenda('${e.id}')">
-              🗑️ Excluir
-            </button>
+  <button class="btn btn-small"
+    onclick="gerarComprovanteEncomenda('${e.id}')">
+    📄 Comprovante
+  </button>
 
-          </div>
+  <button class="btn btn-small btn-danger"
+    onclick="excluirEncomenda('${e.id}')">
+    🗑️ Excluir
+  </button>
+
+</div>
         </td>
       </tr>
       `;
     })
     .join("");
 }
+
+window.editarEncomenda = function (id) {
+  const encomenda = encomendas.find((e) => e.id === id);
+
+  if (!encomenda) {
+    alert("❌ Encomenda não encontrada!");
+    return;
+  }
+
+  document.getElementById("destinatario").value = encomenda.destinatario || "";
+  document.getElementById("remetente").value = encomenda.remetente || "";
+  document.getElementById("bilheteEncomenda").value = encomenda.bilhete || "";
+  document.getElementById("localViagem").value = encomenda.local || "";
+  document.getElementById("cidadeDestinoEncomenda").value =
+    encomenda.cidadeDestino || "";
+  document.getElementById("especie").value = encomenda.especie || "";
+  document.getElementById("telefoneEncomenda").value = encomenda.telefone || "";
+  document.getElementById("emailEncomenda").value = encomenda.email || "";
+  document.getElementById("quantVolumes").value = encomenda.volumes || "";
+  document.getElementById("valorEncomenda").value =
+    `R$ ${encomenda.valor.toFixed(2)}`;
+  document.getElementById("dataViagemEncomenda").value =
+    encomenda.dataViagem || "";
+  document.getElementById("statusPagamento").value =
+    encomenda.statusPagamento || "PENDENTE";
+
+  window.encomendaEditandoId = id;
+
+  showTab("encomendas", document.querySelector(".tab-btn:nth-child(3)"));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
 window.excluirEncomenda = async function (id) {
   if (confirm("Deseja realmente excluir esta encomenda?")) {
@@ -1524,7 +1614,9 @@ document
     }
 
     const encomenda = {
-      ordem: encomendas.length + 1,
+      ordem: window.encomendaEditandoId
+        ? encomendas.find((e) => e.id === window.encomendaEditandoId)?.ordem
+        : encomendas.length + 1,
       destinatario,
       remetente,
       bilhete,
@@ -1540,9 +1632,19 @@ document
       dataCadastro: new Date().toISOString(),
     };
 
-    await addDoc(collection(db, "encomendas"), encomenda);
+    if (window.encomendaEditandoId) {
+      await updateDoc(
+        doc(db, "encomendas", window.encomendaEditandoId),
+        encomenda,
+      );
 
-    alert("✅ Encomenda cadastrada com sucesso!");
+      alert("✅ Encomenda atualizada com sucesso!");
+      window.encomendaEditandoId = null;
+    } else {
+      await addDoc(collection(db, "encomendas"), encomenda);
+      alert("✅ Encomenda cadastrada com sucesso!");
+    }
+
     limparFormEncomenda();
     await carregarDados();
   });
