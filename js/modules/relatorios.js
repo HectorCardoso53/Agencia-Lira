@@ -12,9 +12,9 @@ window.gerarRelatorio = function () {
   }
 
   // 🔹 PRIMEIRO FILTRA
-const passagensFiltradas = (window.passagens || []).filter((p) => {
-  return p.dataViagem >= dataInicial && p.dataViagem <= dataFinal;
-});
+  const passagensFiltradas = (window.passagens || []).filter((p) => {
+    return p.dataViagem >= dataInicial && p.dataViagem <= dataFinal;
+  });
 
   console.log(passagens);
   console.log(passagensFiltradas);
@@ -76,7 +76,6 @@ const passagensFiltradas = (window.passagens || []).filter((p) => {
 
   gerarPrestacaoContas();
 };
-
 
 window.gerarPrestacaoContas = function () {
   if (!window.dadosRelatorio) {
@@ -219,205 +218,211 @@ window.gerarPrestacaoContas = function () {
   y = doc.lastAutoTable.finalY + 10;
 
   // ===============================
-// 📦 BALANÇO ENCOMENDAS
-// ===============================
+  // 📦 BALANÇO ENCOMENDAS
+  // ===============================
 
-if (dados.encomendas.length > 0) {
+  if (dados.encomendas.length > 0) {
+    doc.addPage();
+
+    doc.setFontSize(13);
+    doc.setFont(undefined, "bold");
+    doc.text("BALANÇO GERAL - ENCOMENDAS", 15, 20);
+
+    doc.autoTable({
+      startY: 25,
+      head: [["Descrição", "Valor (R$)"]],
+      body: [
+        ["Total Encomendas", `R$ ${dados.receitaEnc.toFixed(2)}`],
+        ["Comissão Agência (30%)", `R$ ${dados.comissaoEnc.toFixed(2)}`],
+        [
+          "Lucro Líquido",
+          `R$ ${(dados.receitaEnc - dados.comissaoEnc).toFixed(2)}`,
+        ],
+        ["Quantidade Encomendas", dados.encomendas.length],
+        ["Total Volumes", dados.totalVolumes],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [20, 90, 60] },
+    });
+
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 10,
+      head: [
+        [
+          "Ordem",
+          "Destinatário",
+          "Remetente",
+          "Bilhete",
+          "Local",
+          "Destino",
+          "Volumes",
+          "Valor (R$)",
+        ],
+      ],
+      body: dados.encomendas.map((e, index) => [
+        e.ordem ?? index + 1,
+        e.destinatario ?? "-",
+        e.remetente ?? "-",
+        e.bilhete ?? "-",
+        e.local ?? "-",
+        e.cidadeDestino ?? "-",
+        e.volumes ?? 0,
+        `R$ ${Number(e.valor || 0).toFixed(2)}`,
+      ]),
+      theme: "grid",
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [20, 90, 60] },
+    });
+  }
+
+  // ===============================
+  // 📊 RELAÇÃO DA VIAGEM - DASHBOARD PREMIUM
+  // ===============================
+
   doc.addPage();
 
-  doc.setFontSize(13);
-  doc.setFont(undefined, "bold");
-  doc.text("BALANÇO GERAL - ENCOMENDAS", 15, 20);
+  // Fundo leve
+  doc.setFillColor(245, 248, 255);
+  doc.rect(0, 0, pageWidth, 297, "F");
 
-  doc.autoTable({
-    startY: 25,
-    head: [["Descrição", "Valor (R$)"]],
-    body: [
-      ["Total Encomendas", `R$ ${dados.receitaEnc.toFixed(2)}`],
-      ["Comissão Agência (30%)", `R$ ${dados.comissaoEnc.toFixed(2)}`],
-      ["Lucro Líquido", `R$ ${(dados.receitaEnc - dados.comissaoEnc).toFixed(2)}`],
-      ["Quantidade Encomendas", dados.encomendas.length],
-      ["Total Volumes", dados.totalVolumes],
-    ],
-    theme: "grid",
-    headStyles: { fillColor: [20, 90, 60] },
-  });
+  // Faixa superior
+  doc.setFillColor(0, 0, 150);
+  doc.rect(0, 10, pageWidth, 15, "F");
 
-  doc.autoTable({
-    startY: doc.lastAutoTable.finalY + 10,
-    head: [
-      [
-        "Ordem",
-        "Destinatário",
-        "Remetente",
-        "Bilhete",
-        "Local",
-        "Destino",
-        "Volumes",
-        "Valor (R$)",
-      ],
-    ],
-    body: dados.encomendas.map((e, index) => [
-      e.ordem ?? index + 1,
-      e.destinatario ?? "-",
-      e.remetente ?? "-",
-      e.bilhete ?? "-",
-      e.local ?? "-",
-      e.cidadeDestino ?? "-",
-      e.volumes ?? 0,
-      `R$ ${Number(e.valor || 0).toFixed(2)}`,
-    ]),
-    theme: "grid",
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [20, 90, 60] },
-  });
-}
-
-// ===============================
-// 📊 RELAÇÃO DA VIAGEM - DASHBOARD PREMIUM
-// ===============================
-
-
-doc.addPage();
-
-
-// Fundo leve
-doc.setFillColor(245, 248, 255);
-doc.rect(0, 0, pageWidth, 297, "F");
-
-// Faixa superior
-doc.setFillColor(0, 0, 150);
-doc.rect(0, 10, pageWidth, 15, "F");
-
-doc.setFontSize(18);
-doc.setTextColor(255, 255, 255);
-doc.setFont(undefined, "bold");
-doc.text("RELAÇÃO DA VIAGEM - PAINEL EXECUTIVO", 105, 20, { align: "center" });
-
-doc.setTextColor(0, 0, 0);
-
-const lucroPassagem = receitaTotalPass - dados.comissaoPass;
-const lucroEncomenda = dados.receitaEnc - dados.comissaoEnc;
-const totalGeral = receitaTotalPass + dados.receitaEnc;
-const totalComissao = dados.comissaoPass + dados.comissaoEnc;
-const lucroTotal = totalGeral - totalComissao;
-
-// ===============================
-// 🔷 FUNÇÃO PARA CAIXA DASHBOARD
-// ===============================
-
-function desenharCaixa(titulo, x, y, largura, altura, corTopo, dadosLinhas) {
-  // Corpo
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(x, y, largura, altura, 3, 3, "F");
-
-  // Topo colorido
-  doc.setFillColor(...corTopo);
-  doc.roundedRect(x, y, largura, 12, 3, 3, "F");
-
-  doc.setFontSize(11);
+  doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
-  doc.text(titulo, x + largura / 2, y + 8, { align: "center" });
+  doc.setFont(undefined, "bold");
+  doc.text("RELAÇÃO DA VIAGEM - PAINEL EXECUTIVO", 105, 20, {
+    align: "center",
+  });
 
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
 
-  let linhaY = y + 20;
+  const lucroPassagem = receitaTotalPass - dados.comissaoPass;
+  const lucroEncomenda = dados.receitaEnc - dados.comissaoEnc;
+  const totalGeral = receitaTotalPass + dados.receitaEnc;
+  const totalComissao = dados.comissaoPass + dados.comissaoEnc;
+  const lucroTotal = totalGeral - totalComissao;
 
-  dadosLinhas.forEach((linha) => {
-    doc.text(linha.label, x + 5, linhaY);
-    doc.text(linha.valor, x + largura - 5, linhaY, { align: "right" });
-    linhaY += 8;
-  });
-}
+  // ===============================
+  // 🔷 FUNÇÃO PARA CAIXA DASHBOARD
+  // ===============================
 
-// ===============================
-// 🔵 PASSAGENS
-// ===============================
+  function desenharCaixa(titulo, x, y, largura, altura, corTopo, dadosLinhas) {
+    // Corpo
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(x, y, largura, altura, 3, 3, "F");
 
-desenharCaixa(
-  "PASSAGENS",
-  15,
-  40,
-  80,
-  55,
-  [0, 0, 150],
-  [
-    { label: "Total Gerado", valor: `R$ ${receitaTotalPass.toFixed(2)}` },
-    { label: "Comissão (10%)", valor: `R$ ${dados.comissaoPass.toFixed(2)}` },
-    { label: "Lucro Líquido", valor: `R$ ${lucroPassagem.toFixed(2)}` },
-    { label: "Qtd Vendida", valor: `${dados.passagens.length}` },
-  ]
-);
+    // Topo colorido
+    doc.setFillColor(...corTopo);
+    doc.roundedRect(x, y, largura, 12, 3, 3, "F");
 
-// ===============================
-// ⚫ REFEIÇÕES
-// ===============================
+    doc.setFontSize(11);
+    doc.setTextColor(255, 255, 255);
+    doc.text(titulo, x + largura / 2, y + 8, { align: "center" });
 
-desenharCaixa(
-  "REFEIÇÕES",
-  110,
-  40,
-  80,
-  45,
-  [90, 90, 90],
-  [
-    { label: "Total Arrecadado", valor: `R$ ${totalValorRefeicoes.toFixed(2)}` },
-    { label: "Qtd Refeições", valor: `${qtdRefeicoesPagas}` },
-    { label: "Comissão", valor: "Não se aplica" },
-  ]
-);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
 
-// ===============================
-// 🟢 ENCOMENDAS
-// ===============================
+    let linhaY = y + 20;
 
-desenharCaixa(
-  "ENCOMENDAS",
-  15,
-  110,
-  80,
-  55,
-  [0, 120, 60],
-  [
-    { label: "Total Gerado", valor: `R$ ${dados.receitaEnc.toFixed(2)}` },
-    { label: "Comissão (30%)", valor: `R$ ${dados.comissaoEnc.toFixed(2)}` },
-    { label: "Lucro Líquido", valor: `R$ ${lucroEncomenda.toFixed(2)}` },
-    { label: "Qtd Encomendas", valor: `${dados.encomendas.length}` },
-  ]
-);
+    dadosLinhas.forEach((linha) => {
+      doc.text(linha.label, x + 5, linhaY);
+      doc.text(linha.valor, x + largura - 5, linhaY, { align: "right" });
+      linhaY += 8;
+    });
+  }
 
-// ===============================
-// 🟣 TOTAL GERAL (DESTAQUE)
-// ===============================
+  // ===============================
+  // 🔵 PASSAGENS
+  // ===============================
 
-doc.setFillColor(255, 255, 255);
-doc.roundedRect(110, 110, 80, 65, 4, 4, "F");
+  desenharCaixa(
+    "PASSAGENS",
+    15,
+    40,
+    80,
+    55,
+    [0, 0, 150],
+    [
+      { label: "Total Gerado", valor: `R$ ${receitaTotalPass.toFixed(2)}` },
+      { label: "Comissão (10%)", valor: `R$ ${dados.comissaoPass.toFixed(2)}` },
+      { label: "Lucro Líquido", valor: `R$ ${lucroPassagem.toFixed(2)}` },
+      { label: "Qtd Vendida", valor: `${dados.passagens.length}` },
+    ],
+  );
 
-doc.setFillColor(120, 0, 150);
-doc.roundedRect(110, 110, 80, 15, 4, 4, "F");
+  // ===============================
+  // ⚫ REFEIÇÕES
+  // ===============================
 
-doc.setFontSize(12);
-doc.setTextColor(255, 255, 255);
-doc.text("TOTAL GERAL", 150, 120, { align: "center" });
+  desenharCaixa(
+    "REFEIÇÕES",
+    110,
+    40,
+    80,
+    45,
+    [90, 90, 90],
+    [
+      {
+        label: "Total Arrecadado",
+        valor: `R$ ${totalValorRefeicoes.toFixed(2)}`,
+      },
+      { label: "Qtd Refeições", valor: `${qtdRefeicoesPagas}` },
+      { label: "Comissão", valor: "Não se aplica" },
+    ],
+  );
 
-doc.setTextColor(0, 0, 0);
-doc.setFontSize(11);
+  // ===============================
+  // 🟢 ENCOMENDAS
+  // ===============================
 
-doc.text("Total Bruto:", 115, 135);
-doc.text(`R$ ${totalGeral.toFixed(2)}`, 185, 135, { align: "right" });
+  desenharCaixa(
+    "ENCOMENDAS",
+    15,
+    110,
+    80,
+    55,
+    [0, 120, 60],
+    [
+      { label: "Total Gerado", valor: `R$ ${dados.receitaEnc.toFixed(2)}` },
+      { label: "Comissão (30%)", valor: `R$ ${dados.comissaoEnc.toFixed(2)}` },
+      { label: "Lucro Líquido", valor: `R$ ${lucroEncomenda.toFixed(2)}` },
+      { label: "Qtd Encomendas", valor: `${dados.encomendas.length}` },
+    ],
+  );
 
-doc.text("Total Comissão:", 115, 145);
-doc.text(`R$ ${totalComissao.toFixed(2)}`, 185, 145, { align: "right" });
+  // ===============================
+  // 🟣 TOTAL GERAL (DESTAQUE)
+  // ===============================
 
-// Destaque no lucro
-doc.setFont(undefined, "bold");
-doc.setFontSize(14);
-doc.setTextColor(0, 120, 0);
-doc.text("LUCRO LÍQUIDO:", 115, 160);
-doc.text(`R$ ${lucroTotal.toFixed(2)}`, 185, 160, { align: "right" });
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(110, 110, 80, 65, 4, 4, "F");
 
-doc.setTextColor(0, 0, 0);
+  doc.setFillColor(120, 0, 150);
+  doc.roundedRect(110, 110, 80, 15, 4, 4, "F");
+
+  doc.setFontSize(12);
+  doc.setTextColor(255, 255, 255);
+  doc.text("TOTAL GERAL", 150, 120, { align: "center" });
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+
+  doc.text("Total Bruto:", 115, 135);
+  doc.text(`R$ ${totalGeral.toFixed(2)}`, 185, 135, { align: "right" });
+
+  doc.text("Total Comissão:", 115, 145);
+  doc.text(`R$ ${totalComissao.toFixed(2)}`, 185, 145, { align: "right" });
+
+  // Destaque no lucro
+  doc.setFont(undefined, "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(0, 120, 0);
+  doc.text("LUCRO LÍQUIDO:", 115, 160);
+  doc.text(`R$ ${lucroTotal.toFixed(2)}`, 185, 160, { align: "right" });
+
+  doc.setTextColor(0, 0, 0);
 
   // ===============================
   // 📄 RODAPÉ
@@ -430,9 +435,18 @@ doc.setTextColor(0, 0, 0);
     doc.text(`Página ${i} de ${pages}`, 105, 290, { align: "center" });
   }
 
-  const pdfUrl = doc.output("bloburl");
-  document.getElementById("pdfPreview").src = pdfUrl;
-  document.getElementById("pdfModal").style.display = "flex";
+  const pdfBlob = doc.output("blob");
+  const url = URL.createObjectURL(pdfBlob);
+
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (isIOS) {
+    // 🔥 Safari renderiza melhor fora do iframe
+    window.open(url, "_blank");
+  } else {
+    document.getElementById("pdfPreview").src = url;
+    document.getElementById("pdfModal").style.display = "flex";
+  }
 
   document.getElementById("btnWhatsapp").style.display = "none";
   document.getElementById("btnBaixarPdf").style.display = "inline-block";
@@ -452,4 +466,3 @@ doc.setTextColor(0, 0, 0);
     );
   };
 };
-
