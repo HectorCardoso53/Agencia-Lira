@@ -1,19 +1,19 @@
-import { db,auth } from "../firebase.js";
+import { db, auth } from "../firebase.js";
 import { atualizarDashboard } from "./dashboard.js";
 import { storage } from "../firebase.js";
-import { mostrarLoading, atualizarProgresso, esconderLoading } from "./utils.js";
+import {
+  mostrarLoading,
+  atualizarProgresso,
+  esconderLoading,
+} from "./utils.js";
 import { logoBase64 } from "./logo.js";
 
-
-
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import {
   ref,
   uploadBytes,
-  getDownloadURL
+  getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 import {
@@ -64,7 +64,6 @@ async function carregarDados() {
 }
 
 window.carregarDados = carregarDados;
-
 
 function renderizarEncomendas() {
   const tbody = document.getElementById("encomendasBody");
@@ -148,6 +147,73 @@ function renderizarEncomendas() {
     .join("");
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("formEncomenda");
+
+  if (!form) return;
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault(); // 🔥 ISSO É O QUE ESTAVA FALTANDO
+
+    const destinatario = document.getElementById("destinatario").value.trim();
+    const remetente = document.getElementById("remetente").value.trim();
+    const bilhete = document.getElementById("bilheteEncomenda").value.trim();
+    const local = document.getElementById("localViagem").value;
+    const cidadeDestino = document.getElementById(
+      "cidadeDestinoEncomenda",
+    ).value;
+    const especie = document.getElementById("especie").value.trim();
+    const telefone = document.getElementById("telefoneEncomenda").value.trim();
+    const email = document.getElementById("emailEncomenda").value.trim();
+    const volumes = Number(document.getElementById("quantVolumes").value);
+    const dataViagem = document.getElementById("dataViagemEncomenda").value;
+    const statusPagamento = document.getElementById("statusPagamento").value;
+
+    let valor = document
+      .getElementById("valorEncomenda")
+      .value.replace("R$", "")
+      .replace(/\./g, "")
+      .replace(",", ".")
+      .trim();
+
+    valor = parseFloat(valor);
+
+    if (isNaN(valor) || valor <= 0) {
+      alert("❌ Valor inválido!");
+      return;
+    }
+
+    const encomenda = {
+      ordem: encomendas.length + 1,
+      destinatario,
+      remetente,
+      bilhete,
+      local,
+      cidadeDestino,
+      especie,
+      telefone,
+      email,
+      volumes,
+      valor,
+      dataViagem,
+      statusPagamento,
+      dataCadastro: new Date().toISOString(),
+    };
+
+    try {
+      await addDoc(collection(db, "encomendas"), encomenda);
+
+      alert("✅ Encomenda cadastrada com sucesso!");
+
+      form.reset();
+
+      await carregarDados();
+    } catch (error) {
+      console.error(error);
+      alert("❌ Erro ao salvar encomenda.");
+    }
+  });
+});
 window.editarEncomenda = function (id) {
   const encomenda = encomendas.find((e) => e.id === id);
 
@@ -281,7 +347,6 @@ window.marcarComoPago = async function (id) {
   await carregarDados();
 };
 
-
 window.gerarComprovanteEncomenda = function (id) {
   const encomenda = encomendas.find((e) => e.id === id);
   if (!encomenda) return alert("❌ Encomenda não encontrada!");
@@ -354,14 +419,15 @@ window.gerarComprovanteEncomenda = function (id) {
 
   doc.setFontSize(9);
   doc.setTextColor(120);
-  doc.text(`Responsável: ${usuarioLogadoEmail}`, 20, 280);
+  doc.text(`Responsável: ${window.usuarioLogadoEmail}`, 20, 280);
   doc.text(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, 20, 285);
 
-  // 🔥 PREVIEW
-  const pdfUrl = doc.output("bloburl");
-  document.getElementById("pdfPreview").src = pdfUrl;
-  document.getElementById("pdfModal").style.display = "flex";
+  // 🔥 PREVIEW UNIVERSAL
+  const pdfBlob = doc.output("blob");
+  const url = URL.createObjectURL(pdfBlob);
 
+  document.getElementById("pdfPreview").src = url;
+  document.getElementById("pdfModal").style.display = "flex";
   // 🔽 BAIXAR
   document.getElementById("btnBaixarPdf").onclick = function () {
     doc.save(`Encomenda_${encomenda.ordem}.pdf`);
@@ -387,8 +453,7 @@ window.gerarComprovanteEncomenda = function (id) {
       const mes = String(hoje.getMonth() + 1).padStart(2, "0");
 
       const nomeArquivo = `encomenda_${encomenda.ordem}.pdf`;
-      const caminho = `comprovantes/${usuarioLogadoEmail}/${ano}/${mes}/encomendas/${nomeArquivo}`;
-
+      const caminho = `comprovantes/${window.usuarioLogadoEmail}/${ano}/${mes}/encomendas/${nomeArquivo}`;
       const storageRef = ref(storage, caminho);
 
       await uploadBytes(storageRef, pdfBlob);
@@ -413,8 +478,7 @@ Seu comprovante:
 ${downloadURL}
 `;
 
-      
-esconderLoading();
+      esconderLoading();
       enviarWhatsapp(encomenda.telefone, mensagem);
     } catch (error) {
       esconderLoading();
@@ -424,9 +488,7 @@ esconderLoading();
   };
 };
 
-
 window.gerarNotaEncomenda = function (id) {
-
   const encomenda = encomendas.find((e) => e.id === id);
   if (!encomenda) return alert("❌ Encomenda não encontrada!");
 
@@ -435,7 +497,7 @@ window.gerarNotaEncomenda = function (id) {
   const doc = new jsPDF({
     orientation: "p",
     unit: "mm",
-    format: [80, 250]
+    format: [80, 250],
   });
 
   let y = 8;
@@ -474,7 +536,12 @@ window.gerarNotaEncomenda = function (id) {
   linha("Destinatário:", encomenda.destinatario);
   linha("Remetente:", encomenda.remetente);
   linha("Telefone:", encomenda.telefone);
-  linha("Email:", encomenda.email && encomenda.email.trim() !== "" ? encomenda.email : "Sem dados");
+  linha(
+    "Email:",
+    encomenda.email && encomenda.email.trim() !== ""
+      ? encomenda.email
+      : "Sem dados",
+  );
   linha("Local:", encomenda.local);
   linha("Cidade Destino:", encomenda.cidadeDestino || "Sem dados");
   linha("Espécie:", encomenda.especie);
@@ -485,17 +552,17 @@ window.gerarNotaEncomenda = function (id) {
     Number(encomenda.valor).toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
-    })
+    }),
   );
 
   linha(
     "Data Viagem:",
-    new Date(encomenda.dataViagem).toLocaleDateString("pt-BR")
+    new Date(encomenda.dataViagem).toLocaleDateString("pt-BR"),
   );
 
   linha(
     "Data Cadastro:",
-    new Date(encomenda.dataCadastro).toLocaleDateString("pt-BR")
+    new Date(encomenda.dataCadastro).toLocaleDateString("pt-BR"),
   );
 
   // 🔥 STATUS
@@ -527,8 +594,18 @@ window.gerarNotaEncomenda = function (id) {
   doc.text("Via Cliente", 40, y, { align: "center" });
 
   // 🔥 PREVIEW
-  const pdfUrl = doc.output("bloburl");
-  document.getElementById("pdfPreview").src = pdfUrl;
+  const pdfBlob = doc.output("blob");
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    // 🔥 abre direto no visualizador nativo do celular
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, "_blank");
+  } else {
+    const url = URL.createObjectURL(pdfBlob);
+    document.getElementById("pdfPreview").src = url;
+  }
 
   document.getElementById("btnWhatsapp").style.display = "none";
   document.getElementById("btnBaixarPdf").style.display = "inline-block";

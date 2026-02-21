@@ -77,6 +77,7 @@ window.carregarDados = carregarDados;
 
 // PASSAGENS
 document.addEventListener("DOMContentLoaded", () => {
+  carregarClientes();
   const form = document.getElementById("formPassagem");
   if (!form) {
     console.error("❌ formPassagem não encontrado no DOM");
@@ -112,8 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    // 🔎 BUSCA CAMPOS
-    const selectCliente = document.getElementById("selectCliente");
+    const nome = document.getElementById("selectCliente").value.trim();
     const nascimentoInput = document.getElementById("dataNascimento");
     const telefoneInput = document.getElementById("telefone");
     const emailInput = document.getElementById("emailPassageiro");
@@ -123,7 +123,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const dataInput = document.getElementById("dataViagem");
     const pcdInput = document.getElementById("pcdPassageiro");
 
-    const nome = selectCliente.options[selectCliente.selectedIndex].text.trim();
     const cpf = cpfInput.value.replace(/\D/g, "");
     const nascimento = nascimentoInput.value;
     const telefoneVal = telefoneInput.value.trim();
@@ -333,7 +332,7 @@ window.excluirPassagem = async function (id) {
     await deleteDoc(doc(db, "passagens", id));
     await carregarDados();
     renderizarPassagens();
-    atualizarDashboard();
+    atualizarDashboard(passagens, window.encomendas || []);
   }
 };
 
@@ -345,14 +344,7 @@ window.editarPassagem = function (id) {
   }
 
   // Preenche o formulário
-  const select = document.getElementById("selectCliente");
-
-  for (let i = 0; i < select.options.length; i++) {
-    if (select.options[i].text === passagem.nome) {
-      select.selectedIndex = i;
-      break;
-    }
-  }
+  document.getElementById("selectCliente").value = passagem.nome || "";
   document.getElementById("cpfPassageiro").value = passagem.cpf || "";
   document.getElementById("dataNascimento").value =
     passagem.dataNascimento || "";
@@ -471,28 +463,20 @@ window.enviarWhatsapp = function (numeroOriginal, mensagemTexto) {
 
   let numero = numeroOriginal.replace(/\D/g, "");
 
-  // adiciona DDI Brasil se não tiver
+  // adiciona DDI Brasil se necessário
   if (numero.length === 11 && !numero.startsWith("55")) {
     numero = "55" + numero;
   }
 
   const mensagem = encodeURIComponent(mensagemTexto);
 
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  let url;
-
-  if (isMobile) {
-    url = `https://wa.me/${numero}?text=${mensagem}`;
-  } else {
-    url = `https://web.whatsapp.com/send?phone=${numero}&text=${mensagem}`;
-  }
+  // 🔥 SEM DETECTAR DISPOSITIVO
+  const url = `https://wa.me/${numero}?text=${mensagem}`;
 
   window.open(url, "_blank");
 };
 
 window.gerarComprovantePassagem = function (id) {
-
   const passagem = passagens.find((p) => p.id === id);
   if (!passagem) return alert("❌ Passagem não encontrada!");
 
@@ -537,11 +521,22 @@ window.gerarComprovantePassagem = function (id) {
   linha("Nome:", passagem.nome);
   linha("CPF:", passagem.cpf);
   linha("Telefone:", passagem.telefone);
-  linha("Email:", passagem.email && passagem.email.trim() !== "" ? passagem.email : "Sem dados");
+  linha(
+    "Email:",
+    passagem.email && passagem.email.trim() !== ""
+      ? passagem.email
+      : "Sem dados",
+  );
   linha("Embarque:", passagem.embarque);
   linha("Destino:", passagem.destino);
   linha("Data da Viagem:", passagem.dataViagem.split("-").reverse().join("/"));
-  linha("Valor:", passagem.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
+  linha(
+    "Valor:",
+    passagem.valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }),
+  );
   linha("PCD:", passagem.pcd ? "SIM" : "NÃO");
 
   // 🔹 STATUS
@@ -565,8 +560,10 @@ window.gerarComprovantePassagem = function (id) {
   doc.text(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, 20, 285);
 
   // 🔥 PREVIEW
-  const pdfUrl = doc.output("bloburl");
-  document.getElementById("pdfPreview").src = pdfUrl;
+  const pdfBlob = doc.output("blob");
+  const url = URL.createObjectURL(pdfBlob);
+
+  document.getElementById("pdfPreview").src = url;
 
   const btnZap = document.getElementById("btnWhatsapp");
   const btnBaixar = document.getElementById("btnBaixarPdf");
@@ -587,7 +584,6 @@ window.gerarComprovantePassagem = function (id) {
 
   // 📲 WHATSAPP + EMAIL
   btnZap.onclick = async function () {
-
     const confirmar = confirm("Deseja realmente enviar o comprovante?");
     if (!confirmar) return;
 
@@ -641,7 +637,6 @@ ${downloadURL}`;
 
       esconderLoading();
       enviarWhatsapp(passagem.telefone, mensagem);
-
     } catch (error) {
       esconderLoading();
       console.error(error);
@@ -722,9 +717,12 @@ window.gerarNotaPassagem = function (id) {
   y += 8;
   doc.text("Via Cliente", 40, y, { align: "center" });
 
-  // 🔥 PREVIEW NO MODAL
-  const pdfUrl = doc.output("bloburl");
-  document.getElementById("pdfPreview").src = pdfUrl;
+  // 🔥 PREVIEW UNIVERSAL
+  const pdfBlob = doc.output("blob");
+  const url = URL.createObjectURL(pdfBlob);
+
+  document.getElementById("pdfPreview").src = url;
+  document.getElementById("pdfModal").style.display = "flex";
 
   // 🔥 ESCONDE WHATSAPP
   document.getElementById("btnWhatsapp").style.display = "none";
@@ -738,4 +736,60 @@ window.gerarNotaPassagem = function (id) {
   document.getElementById("btnBaixarPdf").onclick = function () {
     doc.save(`Nota_${passagem.bilhete}.pdf`);
   };
+};
+
+let clientes = [];
+
+async function carregarClientes() {
+  const snapshot = await getDocs(collection(db, "clientes"));
+
+  clientes = [];
+
+  snapshot.forEach((docSnap) => {
+    clientes.push({ id: docSnap.id, ...docSnap.data() });
+  });
+}
+
+window.filtrarClientes = function (valor) {
+  const dropdown = document.getElementById("listaClientesDropdown");
+
+  if (!valor) {
+    dropdown.style.display = "none";
+    return;
+  }
+
+  const filtrados = clientes.filter((c) =>
+    c.nome.toLowerCase().includes(valor.toLowerCase()),
+  );
+
+  if (filtrados.length === 0) {
+    dropdown.style.display = "none";
+    return;
+  }
+
+  dropdown.innerHTML = filtrados
+    .map(
+      (c) => `
+      <div onclick="selecionarCliente('${c.id}')">
+        ${c.nome}
+      </div>
+    `,
+    )
+    .join("");
+
+  dropdown.style.display = "block";
+};
+
+window.selecionarCliente = function (id) {
+  const cliente = clientes.find((c) => c.id === id);
+  if (!cliente) return;
+
+  document.getElementById("selectCliente").value = cliente.nome;
+  document.getElementById("cpfPassageiro").value = cliente.cpf || "";
+  document.getElementById("dataNascimento").value =
+    cliente.dataNascimento || "";
+  document.getElementById("telefone").value = cliente.telefone || "";
+  document.getElementById("emailPassageiro").value = cliente.email || "";
+
+  document.getElementById("listaClientesDropdown").style.display = "none";
 };
