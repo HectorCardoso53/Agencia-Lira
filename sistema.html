@@ -120,7 +120,7 @@
 
                         <div class="form-group">
                             <label>Nome do Passageiro *</label>
-                            <select id="selectCliente" required onchange="preencherCliente()">
+                           <select id="selectCliente" onchange="preencherCliente(this)">
                                 <option value="">Selecione um cliente...</option>
                             </select>
                         </div>
@@ -579,7 +579,7 @@
     <canvas id="graficoPDF" width="800" height="400" style="display:none;"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/firebase.js"></script>
-    <script type="module" src="js/script.js"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 
 </html>

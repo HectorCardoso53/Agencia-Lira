@@ -341,10 +341,42 @@ tbody tr:hover {
     letter-spacing: 1px;
 }
 
-.action-buttons {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+.action-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 40px);
+  gap: 6px;
+  justify-content: center;
+}
+
+.btn-action {
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #fff;
+}
+
+/* botão ocupar linha inteira */
+.btn-full {
+  grid-column: span 2;
+}
+/* Cores */
+.btn-primary { background: #2c7be5; }
+.btn-secondary { background: #6c757d; }
+.btn-warning { background: #f0ad4e; }
+.btn-danger { background: #e74c3c; }
+.btn-dark { background: #343a40; }
+
+/* Hover */
+.btn-action:hover {
+  transform: scale(1.08);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.25);
 }
 
 .filter-section {
@@ -1717,4 +1749,25 @@ input[type="email"]:valid {
   border-radius: 6px;
   font-weight: bold;
   font-size: 12px;
+}
+
+
+.action-buttons-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 120px;
+}
+
+.btn-action {
+  padding: 6px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+}
+
+.btn-full {
+  grid-column: span 2;
 }
